@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { Shield, User, LayoutDashboard, ScanLine, Sparkles, Lock } from 'lucide-react';
+import { Shield, User, LayoutDashboard, ScanLine, Sparkles, Lock, BarChart3 } from 'lucide-react';
 import AdminDashboard from './pages/AdminDashboard';
 import MemberDashboard from './pages/MemberDashboard';
 import ReceptionPopup from './pages/ReceptionPopup';
@@ -51,19 +51,24 @@ const Header = ({ user }: HeaderProps) => {
   const isAdmin = user?.role === Role.ADMIN;
 
   return (
-    <header className="bg-brand-900 text-white p-4 shadow-lg sticky top-0 z-40">
+    <header className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-40 border-b border-brand-500">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Shield className="text-brand-500" />
-          <h1 className="text-xl font-bold tracking-tight">VANGUARD <span className="text-brand-500">ONEPASS™</span></h1>
+          <div className="bg-brand-600 p-1 rounded">
+             <Shield className="text-white" size={20} />
+          </div>
+          <div className="flex flex-col">
+              <h1 className="text-xl font-bold tracking-tight leading-none">CACENTRE</h1>
+              <span className="text-[10px] text-brand-400 font-mono tracking-wider">PLATFORM v4.0</span>
+          </div>
         </div>
         <div className="hidden md:flex space-x-6">
-           <Link to="/reception" className="hover:text-brand-300 transition-colors">Reception</Link>
+           <Link to="/reception" className="hover:text-brand-300 transition-colors">Hardware Sim</Link>
            <Link to="/member" className="hover:text-brand-300 transition-colors">Member Portal</Link>
            <Link to="/assistant" className="hover:text-brand-300 transition-colors flex items-center gap-1"><Sparkles size={16}/> AI Concierge</Link>
            {isAdmin && (
              <Link to="/admin" className="text-yellow-400 font-bold hover:text-yellow-300 transition-colors flex items-center gap-1">
-               <Lock size={14} /> God Mode
+               <Lock size={14} /> Admin Console
              </Link>
            )}
         </div>
@@ -74,16 +79,12 @@ const Header = ({ user }: HeaderProps) => {
 
 const ProtectedAdminRoute = ({ user, children }: { user: Member | null, children: React.ReactNode }) => {
   if (!user || user.role !== Role.ADMIN) {
-    // If not admin, you can redirect or show a "Restricted" page.
-    // However, to allow "Admin Login" flow, we might pass through to the dashboard 
-    // and let the dashboard handle the "Login" state if user is null.
-    // BUT, if user is logged in as MEMBER, they should be blocked.
     if (user && user.role !== Role.ADMIN) {
         return (
             <div className="flex flex-col items-center justify-center h-[80vh] text-center p-6">
                 <Shield size={64} className="text-slate-300 mb-4" />
                 <h1 className="text-2xl font-bold text-slate-800">Restricted Access</h1>
-                <p className="text-slate-500 mt-2">You do not have clearance to access the God Mode console.</p>
+                <p className="text-slate-500 mt-2">You do not have clearance to access the Admin console.</p>
                 <Link to="/member" className="mt-6 text-brand-600 hover:underline">Return to Member Portal</Link>
             </div>
         )
