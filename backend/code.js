@@ -1,245 +1,218 @@
 /**
- * Vanguard OnePass™ - Backend Logic (Google Apps Script)
+ * Vanguard OnePass™ - Backend Logic v4.3 (Production)
  * 
- * DEPLOYMENT INSTRUCTIONS:
- * 1. Create a new Google Sheet.
- * 2. Extensions > Apps Script.
- * 3. Paste this code into Code.gs.
- * 4. Deploy > New Deployment > Type: Web App.
- * 5. Execute as: Me (your account).
- * 6. Who has access: Anyone.
- * 7. Copy the Web App URL and paste it into the Admin Dashboard > Integration tab.
+ * ==========================================
+ * DEPLOYMENT INSTRUCTIONS
+ * ==========================================
+ * 1. Open your Google Sheet.
+ * 2. Go to Extensions > Apps Script.
+ * 3. Paste this entire file into 'Code.gs'.
+ * 4. Click 'Deploy' > 'New deployment'.
+ * 5. Select type: 'Web app'.
+ * 6. Description: 'v1'.
+ * 7. Execute as: 'Me' (your account).
+ * 8. Who has access: 'Anyone' (Required for the React App to access it without OAuth popup).
+ * 9. Copy the 'Web App URL' and paste it into the Admin Dashboard > Integration tab.
+ * ==========================================
  */
 
-// --- CONFIGURATION ---
-const SHEET_NAMES = {
-  DB: 'Central DB',
-  CONFIG: 'Config',
-  LEDGER: 'Transactions',
-  LOGS: 'Access Logs'
+const CONFIG = {
+  SHEET_DB: 'Central DB',
+  SHEET_LOGS: 'Access Logs',
+  SHEET_LEDGER: 'Transactions',
+  ORG_ID: 'ORG_CACENTRE_001',
+  SOURCES: ['Import-MGT', 'Import-NGV', 'Import-NGG', 'Import-MAM']
 };
 
-const ORG_ID_DEFAULT = 'ORG_CACENTRE_001';
-
-// --- API GATEWAY ---
-
 function doGet(e) {
-  // Handle CORS and Response formatting
   const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  lock.tryLock(30000); 
 
   try {
-    const action = e.parameter.action;
-    
-    // Health Check
+    const params = e.parameter;
+    const action = params.action;
+
     if (!action) {
-      return response({ status: 'Online', version: 'v4.1.0', mode: 'CACENTRE' });
+      return createJSONResponse({ 
+        status: 'Online', 
+        system: 'Vanguard OnePass', 
+        version: '4.3.0',
+        timestamp: new Date().toISOString() 
+      });
     }
 
-    let result = { success: false, message: 'Unknown Action' };
+    let result = { success: false };
 
     switch (action) {
       case 'getMembers':
-        result = { success: true, data: getAllMembers() };
+        result = { success: true, data: fetchAllMembers() };
         break;
       case 'sync':
-        compileCentralDB();
-        result = { success: true, message: 'Central DB Compiled Successfully' };
-        break;
-      case 'sendEmail':
-        const sent = sendEmailInternal(e.parameter.to, e.parameter.subject, e.parameter.body);
-        result = { success: sent, message: sent ? 'Email Sent' : 'Email Failed' };
-        break;
-      case 'getStats':
-        result = { success: true, data: getSystemStats() };
+        result = { success: true, message: runCompiler() };
         break;
       default:
-        result = { success: false, message: 'Invalid Action Endpoint' };
+        result = { success: false, message: 'Invalid GET Action' };
     }
-    
-    return response(result);
-    
+    return createJSONResponse(result);
   } catch (error) {
-    return response({ success: false, error: error.toString() });
+    return createJSONResponse({ success: false, error: error.toString() });
   } finally {
     lock.releaseLock();
   }
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.tryLock(30000);
+
   try {
-    const postData = JSON.parse(e.postData.contents);
-    const action = e.parameter.action || postData.action || 'scan';
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
     let result = { success: false };
 
-    if (action === 'scan') {
-       result = processScan(postData.id);
-    } else if (action === 'log_transaction') {
-       logTransaction(postData);
-       result = { success: true };
+    if (action === 'uploadPhoto') {
+        result = handlePhotoUpload(data.id, data.photo);
+    } else if (action === 'bulkUpdate') {
+        result = handleBulkUpdate(data.ids, data.updates);
+    } else if (action === 'scan') {
+        result = handleScan(data.id);
     }
-    
-    return response(result);
+
+    return createJSONResponse(result);
   } catch (error) {
-    return response({ success: false, error: error.toString() });
+    return createJSONResponse({ success: false, error: error.toString() });
+  } finally {
+    lock.releaseLock();
   }
 }
 
-// --- CORE LOGIC ---
+// --- CORE HANDLERS ---
 
-function getAllMembers() {
-  const sheet = getSheet(SHEET_NAMES.DB);
+function handlePhotoUpload(memberId, base64String) {
+  const sheet = getSheet(CONFIG.SHEET_DB);
   const data = sheet.getDataRange().getValues();
-  const headers = data.shift(); // Remove headers
-  
-  if (!data || data.length === 0) return [];
+  // Find member row
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(memberId)) {
+        // Col 5 is Photo URL (index 4)
+        sheet.getRange(i + 1, 5).setValue(base64String); 
+        return { success: true, message: 'Photo Updated' };
+    }
+  }
+  return { success: false, message: 'Member not found' };
+}
 
-  // Map Central DB columns to Member Interface
-  // Assumes strictly enforced headers: Member ID | Name | Role | Status | Photo URL | Wallet | Fines | Points
+function handleBulkUpdate(ids, updates) {
+  const sheet = getSheet(CONFIG.SHEET_DB);
+  const data = sheet.getDataRange().getValues();
+  const idSet = new Set(ids);
+  
+  // Map fields to column indexes
+  const colMap = { 'status': 4, 'role': 3 }; // 1-based index: Role=Col 3, Status=Col 4
+  
+  for (let i = 1; i < data.length; i++) {
+     if (idSet.has(String(data[i][0]))) {
+         if (updates.status) sheet.getRange(i + 1, colMap.status).setValue(updates.status);
+         if (updates.role) sheet.getRange(i + 1, colMap.role).setValue(updates.role);
+     }
+  }
+  return { success: true };
+}
+
+function fetchAllMembers() {
+  const sheet = getSheet(CONFIG.SHEET_DB);
+  const data = sheet.getDataRange().getValues();
+  data.shift(); 
+  
   return data.map(row => ({
     id: String(row[0]),
-    organizationId: ORG_ID_DEFAULT,
     name: String(row[1]),
     role: String(row[2]),
     status: String(row[3]),
     photoUrl: String(row[4]),
     walletBalance: Number(row[5]) || 0,
     outstandingFines: Number(row[6]) || 0,
-    rewardPoints: Number(row[7]) || 0,
-    email: String(row[8] || "")
-  })).filter(m => m.id && m.id !== '');
+    rewardPoints: Number(row[7]) || 0
+  })).filter(m => m.id);
 }
 
-function compileCentralDB() {
+function runCompiler() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let targetSheet = ss.getSheetByName(SHEET_NAMES.DB);
+  let targetSheet = ss.getSheetByName(CONFIG.SHEET_DB);
+  
   if (!targetSheet) {
-    targetSheet = ss.insertSheet(SHEET_NAMES.DB);
-    // Set Header
-    targetSheet.getRange(1, 1, 1, 9).setValues([['Member ID', 'Full Name', 'Role', 'Status', 'Photo URL', 'Wallet Balance', 'Outstanding Fines', 'Reward Points', 'Email']]);
-    targetSheet.setFrozenRows(1);
+    targetSheet = ss.insertSheet(CONFIG.SHEET_DB);
+    targetSheet.appendRow(['Member ID', 'Full Name', 'Role', 'Status', 'Photo URL', 'Wallet Balance', 'Outstanding Fines', 'Reward Points']);
   }
 
-  // Sources to compile
-  const sources = ['Import-MGT', 'Import-NGV', 'Import-NGG', 'Import-MAM'];
-  const compiledData = [];
-  const existingMap = getExistingWalletMap(targetSheet);
+  // 1. Snapshot existing finance
+  const existingFinance = {};
+  const currentData = targetSheet.getDataRange().getValues();
+  currentData.shift(); 
+  currentData.forEach(row => {
+    if (row[0]) existingFinance[String(row[0])] = { wallet: row[5], fines: row[6], points: row[7] };
+  });
 
-  sources.forEach(sourceName => {
+  const compiledMembers = [];
+  const processedIDs = new Set();
+
+  CONFIG.SOURCES.forEach(sourceName => {
     const sheet = ss.getSheetByName(sourceName);
     if (!sheet) return;
 
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    if (!data.length) return;
+    const rawData = sheet.getDataRange().getValues();
+    if (rawData.length < 2) return;
+    const headers = rawData.shift();
 
-    // Dynamic Column Mapping
     const map = {
-      id: headers.indexOf('Member ID'),
-      name: headers.indexOf('Full Name'),
-      role: headers.indexOf('Role'),
-      status: headers.indexOf('Status'),
-      photo: headers.indexOf('Image') > -1 ? headers.indexOf('Image') : headers.indexOf('Photo URL'),
-      email: headers.indexOf('Email')
+      id: findColumn(headers, ['Member ID', 'ID', 'Reg No']),
+      name: findColumn(headers, ['Full Name', 'Name', 'Student Name']),
+      role: findColumn(headers, ['Role', 'Position']),
+      status: findColumn(headers, ['Status', 'State'])
     };
 
-    // If critical columns missing, try smart matching or skip
-    if (map.id === -1) map.id = 0; 
-    if (map.name === -1) map.name = 1;
+    if (map.id === -1 || map.name === -1) return;
 
-    data.forEach(row => {
-      const id = String(row[map.id]);
-      if (!id || id === '') return;
+    rawData.forEach(row => {
+      let id = String(row[map.id] || "").trim();
+      if (!id || processedIDs.has(id)) return;
 
-      // Preserve existing wallet/fines/points if member exists
-      const existing = existingMap[id] || { wallet: 0, fines: 0, points: 0 };
+      const finance = existingFinance[id] || { wallet: 0, fines: 0, points: 0 };
+      const role = map.role > -1 ? row[map.role] : 'Member';
+      const status = map.status > -1 ? row[map.status] : 'Active';
 
-      compiledData.push([
+      compiledMembers.push([
         id,
-        row[map.name],
-        map.role > -1 ? row[map.role] : getDefaultRole(sourceName),
-        map.status > -1 ? row[map.status] : 'Active',
-        map.photo > -1 ? row[map.photo] : '',
-        existing.wallet,
-        existing.fines,
-        existing.points,
-        map.email > -1 ? row[map.email] : ''
+        String(row[map.name] || "").trim(),
+        role || 'Member',
+        status || 'Active',
+        '', // Photo placeholder if not handled by bulk upload
+        finance.wallet,
+        finance.fines,
+        finance.points
       ]);
+
+      processedIDs.add(id);
     });
   });
 
-  // Write Back to Central DB
-  if (compiledData.length > 0) {
-    // Clear content but leave headers
-    const lastRow = targetSheet.getLastRow();
-    if (lastRow > 1) targetSheet.getRange(2, 1, lastRow - 1, 9).clearContent();
-    
-    targetSheet.getRange(2, 1, compiledData.length, 9).setValues(compiledData);
-  }
-  
-  return true;
-}
-
-// Helper to preserve financial data during sync
-function getExistingWalletMap(sheet) {
-  const data = sheet.getDataRange().getValues();
-  data.shift(); // Remove headers
-  const map = {};
-  data.forEach(row => {
-    if (row[0]) {
-      map[String(row[0])] = {
-        wallet: row[5],
-        fines: row[6],
-        points: row[7]
-      };
+  if (compiledMembers.length > 0) {
+    if (targetSheet.getLastRow() > 1) {
+       targetSheet.getRange(2, 1, targetSheet.getLastRow()-1, 8).clearContent();
     }
-  });
-  return map;
-}
-
-function getDefaultRole(source) {
-  if (source.includes('MGT')) return 'Management';
-  if (source.includes('NGV')) return 'Vanguard';
-  return 'Member';
-}
-
-function sendEmailInternal(to, subject, body) {
-  if (!to) return false;
-  try {
-    MailApp.sendEmail({
-      to: to,
-      subject: `[CACENTRE] ${subject}`,
-      htmlBody: body,
-      name: 'Vanguard OnePass System'
-    });
-    return true;
-  } catch (e) {
-    console.error('Email Error: ' + e.toString());
-    return false;
+    targetSheet.getRange(2, 1, compiledMembers.length, 8).setValues(compiledMembers);
+    return `Compiled ${compiledMembers.length} members.`;
   }
+  return "No data found.";
 }
 
-function processScan(id) {
-  // Hardware simulation endpoint
-  const sheet = getSheet(SHEET_NAMES.LOGS);
-  sheet.appendRow([new Date(), id, 'SCAN', 'GRANTED', 'Hardware/API']);
-  return { allowed: true, message: 'Logged via API' };
+function findColumn(headers, candidates) {
+  for (let c of candidates) {
+    const idx = headers.findIndex(h => String(h).toLowerCase() === c.toLowerCase());
+    if (idx > -1) return idx;
+  }
+  return -1;
 }
-
-function logTransaction(data) {
-  const sheet = getSheet(SHEET_NAMES.LEDGER);
-  sheet.appendRow([new Date(), data.memberId, data.type, data.amount, data.description, 'API']);
-}
-
-function getSystemStats() {
-  const members = getAllMembers();
-  return {
-    totalMembers: members.length,
-    activeToday: 0 // Calculation requires logs parsing, simplified for now
-  };
-}
-
-// --- UTILS ---
 
 function getSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -248,7 +221,7 @@ function getSheet(name) {
   return sheet;
 }
 
-function response(data) {
+function createJSONResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
