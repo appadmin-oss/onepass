@@ -87,6 +87,10 @@ export interface SystemConfig {
   autoSuspendThreshold: number;
   maintenanceMode: boolean;
   currentSessionId?: string;
+  // Google Integration
+  googleSheetsId?: string;
+  gasWebAppUrl?: string;
+  lastSyncTime?: string;
 }
 
 export interface WithdrawalRequest {
