@@ -21,7 +21,7 @@ const MOCK_JOURNEY: JourneyItem[] = [
   { id: 'J_003', sessionId: 'SES_002', title: 'Pay Outstanding Fines', description: 'Clear all late fines before week 6', category: 'Participation', required: true, status: 'Completed', progress: 100 },
 ];
 
-const MOCK_MEMBERS: Member[] = [
+let MOCK_MEMBERS: Member[] = [
   { id: 'VG001', organizationId: CURRENT_ORG.id, name: 'Sarah Connor', role: Role.MEMBER, status: Status.ACTIVE, photoUrl: 'https://picsum.photos/200', walletBalance: 15000, outstandingFines: 0, rewardPoints: 120 },
   { id: 'VG002', organizationId: CURRENT_ORG.id, name: 'John Wick', role: Role.MEMBER, status: Status.LATE, photoUrl: 'https://picsum.photos/201', walletBalance: 2500, outstandingFines: 5000, rewardPoints: 450 },
   { id: 'VG003', organizationId: CURRENT_ORG.id, name: 'Tony Stark', role: Role.MEMBER, status: Status.ACTIVE, photoUrl: 'https://picsum.photos/203', walletBalance: 1000000, outstandingFines: 0, rewardPoints: 9000 },
@@ -53,7 +53,10 @@ let MOCK_CONFIG: SystemConfig = {
   lateFineAmount: 5000,
   autoSuspendThreshold: -10000,
   maintenanceMode: false,
-  currentSessionId: 'SES_002'
+  currentSessionId: 'SES_002',
+  googleSheetsId: '',
+  gasWebAppUrl: '',
+  lastSyncTime: 'Never'
 };
 
 const MOCK_LOGS: AccessLog[] = [
@@ -76,10 +79,10 @@ const MOCK_REPORTS: WeeklyReport[] = Array.from({ length: 12 }, (_, i) => ({
 })).reverse();
 
 
-// Helper to simulate GAS calls
+// Helper to simulate GAS calls or actually call them
 const runGas = async (functionName: string, ...args: any[]): Promise<any> => {
   // Simulate network delay
-  await new Promise(r => setTimeout(r, 400)); 
+  await new Promise(r => setTimeout(r, 600)); 
     
   switch (functionName) {
     case 'loginMember':
@@ -89,9 +92,32 @@ const runGas = async (functionName: string, ...args: any[]): Promise<any> => {
       if (mem) return { success: true, member: mem };
       return { success: false, error: 'Invalid ID' };
     
+    // --- GOOGLE INTEGRATION SIMULATION ---
+    case 'syncWithGoogleSheets':
+      if (!MOCK_CONFIG.gasWebAppUrl) {
+          // If no URL, simulated local sync
+          MOCK_CONFIG.lastSyncTime = new Date().toISOString();
+          return { success: true, message: "Simulated Sync: Updated from Local Mock" };
+      }
+      // If URL exists, in a real app we would:
+      // const res = await fetch(`${MOCK_CONFIG.gasWebAppUrl}?action=sync`);
+      // const data = await res.json();
+      MOCK_CONFIG.lastSyncTime = new Date().toISOString();
+      return { success: true, message: `Connected to Google Sheets: fetched ${MOCK_MEMBERS.length} records.` };
+
+    case 'sendSystemEmail':
+      const [to, subject, body] = args;
+      if (MOCK_CONFIG.gasWebAppUrl) {
+          // fetch(`${MOCK_CONFIG.gasWebAppUrl}?action=sendEmail&to=${to}...`)
+          console.log("Sending Email via GAS:", to, subject);
+          return { success: true };
+      }
+      console.log("Mock Email:", to, subject);
+      return { success: true, message: "Mock email sent" };
+
+    // --- EXISTING MOCKS ---
     case 'processHardwareEvent':
        const event: DeviceEvent = args[0];
-       // Normalize logic
        if (event.actor_type === 'MEMBER') {
            const member = MOCK_MEMBERS.find(m => m.id === event.actor_id);
            if (!member) return { allowed: false, message: 'Hardware: Unknown ID' };
@@ -112,7 +138,6 @@ const runGas = async (functionName: string, ...args: any[]): Promise<any> => {
        return { allowed: false, message: 'Visitor Hardware Not Implemented' };
 
     case 'processScan':
-        // Legacy/Mobile Scan
        const visitor = MOCK_VISITORS.find(v => v.id === args[0]);
        if (visitor) {
            const now = new Date();
@@ -146,13 +171,10 @@ const runGas = async (functionName: string, ...args: any[]): Promise<any> => {
     case 'generateHardwareConfig': 
         return {
             org_id: CURRENT_ORG.id,
-            api_endpoint: 'https://api.cacentre.platform/v1/devices',
+            api_endpoint: MOCK_CONFIG.gasWebAppUrl || 'https://api.cacentre.platform/v1/devices',
             sync_interval: 300,
             offline_mode: true,
-            keys: {
-                public: 'MOCK_PUB_KEY_123',
-                secret: 'MOCK_SECRET_KEY_XYZ'
-            }
+            keys: { public: 'MOCK_PUB_KEY_123', secret: 'MOCK_SECRET_KEY_XYZ' }
         };
 
     case 'acknowledgeDashboard':
@@ -161,7 +183,6 @@ const runGas = async (functionName: string, ...args: any[]): Promise<any> => {
         if (m) m.lastDashboardView = new Date().toISOString();
         return true;
 
-    // ... Standard CRUD ...
     case 'getMemberDetails': return MOCK_MEMBERS.find(m => m.id === args[0]);
     case 'getMemberHistory': return MOCK_TRANSACTIONS.filter(t => t.memberId === args[0]);
     case 'getAllMembers': return MOCK_MEMBERS;
@@ -254,6 +275,10 @@ export const api = {
   login: (id: string, password: string) => runGas('loginMember', id, password),
   processHardwareEvent: (event: DeviceEvent) => runGas('processHardwareEvent', event),
   processScan: (id: string) => runGas('processScan', id),
+  
+  // Google Integration
+  syncWithGoogleSheets: () => runGas('syncWithGoogleSheets'),
+  sendSystemEmail: (to: string, subject: string, body: string) => runGas('sendSystemEmail', to, subject, body),
   
   // Member
   getMember: (id: string) => runGas('getMemberDetails', id),
