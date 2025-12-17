@@ -1,0 +1,7 @@
+{
+  "name": "Vanguard OnePass",
+  "description": "A unified access control, attendance, wallet, fines, rewards, and admin management system.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
