@@ -8,7 +8,7 @@
  */
 
 // --- CONFIGURATION ---
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // User to replace
+const SPREADSHEET_ID = '1UtyZrdfUFgyyU8cM2Mq1H4nInte7NzAsa3iFz6i6Oa8'; // User to replace
 const SHEET_NAMES = {
   DB: 'Central DB',
   CONFIG: 'Config',
