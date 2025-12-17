@@ -4,7 +4,7 @@ import {
   Database, RefreshCw, DollarSign, Lock, Shield, 
   CheckCircle, XCircle, Power, FileText, List, UserCheck, Key,
   Bot, Sparkles, CheckSquare, Square, Contact, Server, Calendar,
-  BarChart2, Download
+  BarChart2, Download, Link as LinkIcon, Cloud
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { api } from '../services/api';
@@ -22,8 +22,9 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'members' | 'sessions' | 'hardware' | 'visitors' | 'finance' | 'logs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'members' | 'sessions' | 'hardware' | 'integration' | 'finance' | 'logs' | 'visitors'>('overview');
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Data State
   const [members, setMembers] = useState<Member[]>([]);
@@ -38,6 +39,14 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
   // UI State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+
+  // Config Form State
+  const [gasUrl, setGasUrl] = useState('');
+  const [sheetId, setSheetId] = useState('');
+
+  // Visitor Form State
+  const [showNewVisitor, setShowNewVisitor] = useState(false);
+  const [visitorForm, setVisitorForm] = useState({ name: '', host: '', purpose: '' });
 
   useEffect(() => {
     if (user?.role === Role.ADMIN) {
@@ -61,6 +70,11 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
       setConfig(c);
       setSessions(sess || []);
       setReports(rep || []);
+      
+      if (c) {
+          setGasUrl(c.gasWebAppUrl || '');
+          setSheetId(c.googleSheetsId || '');
+      }
       
       if (activeTab === 'logs') loadLogs();
       if (activeTab === 'finance') loadWithdrawals();
@@ -90,6 +104,31 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
     } catch (e) { setError('Login failed'); }
   };
 
+  const handleSync = async () => {
+      setSyncing(true);
+      try {
+          // Save config first
+          await api.updateConfig({ gasWebAppUrl: gasUrl, googleSheetsId: sheetId });
+          // Trigger sync
+          const res = await api.syncWithGoogleSheets();
+          if (res.success) {
+              alert(res.message);
+              await loadData();
+          } else {
+              alert("Sync Failed: " + res.message);
+          }
+      } catch (e) {
+          alert("Sync Error");
+      } finally {
+          setSyncing(false);
+      }
+  };
+
+  const handleConfigSave = async () => {
+      await api.updateConfig({ gasWebAppUrl: gasUrl, googleSheetsId: sheetId });
+      alert("Configuration Saved");
+  };
+
   const downloadHardwareConfig = async () => {
       const conf = await api.generateHardwareConfig();
       const element = document.createElement("a");
@@ -99,6 +138,14 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
       document.body.appendChild(element);
       element.click();
       alert("Config downloaded. Load this onto your hardware node.");
+  };
+
+  const handleCreateVisitor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await api.createVisitor(visitorForm.name, visitorForm.host, visitorForm.purpose);
+    setShowNewVisitor(false);
+    setVisitorForm({ name: '', host: '', purpose: '' });
+    loadVisitors();
   };
 
   if (!isAuthenticated) {
@@ -148,6 +195,9 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
             <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'overview' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
               <TrendingUp size={18} className="mr-3" /> Dashboard
             </button>
+            <button onClick={() => setActiveTab('integration')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'integration' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Cloud size={18} className="mr-3" /> Integration & Sync
+            </button>
             <button onClick={() => setActiveTab('analytics')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'analytics' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
               <BarChart2 size={18} className="mr-3" /> Analytics & Trends
             </button>
@@ -160,8 +210,14 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
             <button onClick={() => setActiveTab('members')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'members' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
               <Users size={18} className="mr-3" /> Members
             </button>
-            <button onClick={() => setActiveTab('finance')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'finance' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <button onClick={() => { setActiveTab('finance'); loadWithdrawals(); }} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'finance' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
               <DollarSign size={18} className="mr-3" /> Wallet & Fines
+            </button>
+            <button onClick={() => { setActiveTab('visitors'); loadVisitors(); }} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'visitors' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Contact size={18} className="mr-3" /> Visitors
+            </button>
+            <button onClick={() => { setActiveTab('logs'); loadLogs(); }} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'logs' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <List size={18} className="mr-3" /> Access Logs
             </button>
           </nav>
         </div>
@@ -187,62 +243,93 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
           </div>
         )}
 
+        {activeTab === 'integration' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="border-b border-slate-100 pb-4 mb-6">
+                    <h3 className="font-bold text-lg flex items-center"><Cloud className="mr-2 text-brand-500"/> Google Integration</h3>
+                    <p className="text-slate-500 text-sm">Configure Google Sheets database and Apps Script automation.</p>
+                </div>
+
+                <div className="space-y-6 max-w-2xl">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Google Sheet ID</label>
+                        <div className="flex gap-2">
+                             <input type="text" value={sheetId} onChange={e => setSheetId(e.target.value)} className="flex-1 p-3 border border-slate-300 rounded-lg font-mono text-sm" placeholder="1BxiMvs..." />
+                             <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noreferrer" className="p-3 bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600">
+                                <LinkIcon size={20} />
+                             </a>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Found in the URL of your Google Sheet.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Web App URL (Apps Script)</label>
+                        <input type="text" value={gasUrl} onChange={e => setGasUrl(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg font-mono text-sm" placeholder="https://script.google.com/macros/s/..." />
+                        <p className="text-xs text-slate-400 mt-1">Deploy your GAS project as a Web App (Exec as Me, Access: Anyone) and paste the URL here.</p>
+                    </div>
+
+                    <div className="flex gap-4 pt-4 border-t border-slate-100">
+                         <button onClick={handleConfigSave} className="px-6 py-2 border border-slate-300 rounded-lg font-bold text-slate-600 hover:bg-slate-50">Save Config</button>
+                         <button onClick={handleSync} disabled={syncing} className="px-6 py-2 bg-brand-600 rounded-lg font-bold text-white hover:bg-brand-700 flex items-center">
+                             <RefreshCw className={`mr-2 ${syncing ? 'animate-spin' : ''}`} size={18} />
+                             {syncing ? 'Syncing...' : 'Sync Now'}
+                         </button>
+                    </div>
+
+                    {config?.lastSyncTime && (
+                        <div className="bg-green-50 text-green-700 p-3 rounded text-sm flex items-center">
+                            <CheckCircle size={16} className="mr-2"/>
+                            Last Synced: {new Date(config.lastSyncTime).toLocaleString()}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+
         {activeTab === 'analytics' && (
             <div className="space-y-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h3 className="font-bold text-lg mb-4">Weekly Attendance & Fine Trends</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={attendanceData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis yAxisId="left" />
-                                <YAxis yAxisId="right" orientation="right" />
-                                <Tooltip />
-                                <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="rate" stroke="#0ea5e9" activeDot={{ r: 8 }} name="Attendance %" />
-                                <Line yAxisId="right" type="monotone" dataKey="fines" stroke="#ef4444" name="Fines (k)" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-bold text-lg mb-4">Member Status Distribution</h3>
-                         <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={statusData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
-                                        {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-bold text-lg mb-4">Weekly Reports Archive</h3>
-                        <div className="overflow-y-auto h-64">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-left">
-                                    <tr><th>Week</th><th>Session</th><th>Rate</th><th>Action</th></tr>
-                                </thead>
-                                <tbody>
-                                    {reports.map(r => (
-                                        <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                            <td className="p-2">W{r.weekNumber}</td>
-                                            <td className="p-2">{r.session}</td>
-                                            <td className="p-2">{r.attendanceRate.toFixed(1)}%</td>
-                                            <td className="p-2"><a href="#" className="text-brand-600 hover:underline">Download</a></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <h3 className="font-bold text-lg mb-4">Weekly Attendance & Fine Trends</h3>
+                      <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={attendanceData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="name" />
+                                  <YAxis yAxisId="left" />
+                                  <YAxis yAxisId="right" orientation="right" />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line yAxisId="left" type="monotone" dataKey="rate" stroke="#0ea5e9" activeDot={{ r: 8 }} name="Attendance %" />
+                                  <Line yAxisId="right" type="monotone" dataKey="fines" stroke="#ef4444" name="Fines (k)" />
+                              </LineChart>
+                          </ResponsiveContainer>
+                      </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <h3 className="font-bold text-lg mb-4">Member Status Distribution</h3>
+                      <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                  <Pie
+                                      data={statusData}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={60}
+                                      outerRadius={80}
+                                      paddingAngle={5}
+                                      dataKey="value"
+                                  >
+                                      {statusData.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                      ))}
+                                  </Pie>
+                                  <Tooltip />
+                                  <Legend />
+                              </PieChart>
+                          </ResponsiveContainer>
+                      </div>
+                  </div>
                 </div>
             </div>
         )}
@@ -295,13 +382,169 @@ export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
             </div>
         )}
 
-        {/* Keeping existing Member & Finance logic as they are compatible */}
         {activeTab === 'members' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                 <h3 className="font-bold mb-4">Member Management (Compatible View)</h3>
-                 <p>Standard member controls enabled.</p>
-                 {/* Reusing existing member table would go here */}
+                 <h3 className="font-bold mb-4">Member Management</h3>
+                 <div className="mb-4 flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Search by ID or Name..." 
+                      className="p-2 border rounded w-full max-w-sm" 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                 </div>
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-500">
+                            <tr>
+                                <th className="p-3">ID</th>
+                                <th className="p-3">Name</th>
+                                <th className="p-3">Role</th>
+                                <th className="p-3">Status</th>
+                                <th className="p-3">Wallet</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {members.filter(m => 
+                              m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              m.id.toLowerCase().includes(searchTerm.toLowerCase())
+                            ).map(m => (
+                                <tr key={m.id}>
+                                    <td className="p-3 font-mono">{m.id}</td>
+                                    <td className="p-3 font-medium">{m.name}</td>
+                                    <td className="p-3">{m.role}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                            m.status === Status.ACTIVE ? 'bg-green-100 text-green-700' : 
+                                            m.status === Status.LATE ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {m.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">₦{m.walletBalance.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
             </div>
+        )}
+
+        {activeTab === 'finance' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold mb-4">Pending Withdrawals</h3>
+                {withdrawals.length === 0 ? (
+                    <div className="text-center p-8 text-slate-500 bg-slate-50 rounded-lg">No pending requests</div>
+                ) : (
+                    <div className="space-y-4">
+                        {withdrawals.map(w => (
+                            <div key={w.id} className="flex items-center justify-between border border-slate-200 p-4 rounded-lg hover:bg-slate-50 transition">
+                                <div>
+                                    <p className="font-bold text-slate-900">{w.memberName} <span className="text-slate-400 font-normal">({w.memberId})</span></p>
+                                    <p className="text-sm text-slate-500">₦{w.amount.toLocaleString()} • {new Date(w.timestamp).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={async () => { await api.processWithdrawal(w.id, 'Approved'); loadWithdrawals(); }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">Approve</button>
+                                    <button onClick={async () => { await api.processWithdrawal(w.id, 'Rejected'); loadWithdrawals(); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">Reject</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )}
+
+        {activeTab === 'visitors' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                 <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg">Visitor Management</h3>
+                    <button onClick={() => setShowNewVisitor(true)} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition">
+                        <UserCheck size={16} className="mr-2"/> New Visitor Pass
+                    </button>
+                 </div>
+
+                 {showNewVisitor && (
+                     <div className="bg-slate-50 p-4 rounded-lg mb-6 border border-slate-200 animate-fade-in">
+                         <h4 className="font-bold text-sm text-slate-700 mb-3">Create New Pass</h4>
+                         <form onSubmit={handleCreateVisitor} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                             <input className="p-2 border rounded" placeholder="Visitor Name" required value={visitorForm.name} onChange={e => setVisitorForm({...visitorForm, name: e.target.value})} />
+                             <input className="p-2 border rounded" placeholder="Host Name (Member)" required value={visitorForm.host} onChange={e => setVisitorForm({...visitorForm, host: e.target.value})} />
+                             <input className="p-2 border rounded" placeholder="Purpose" required value={visitorForm.purpose} onChange={e => setVisitorForm({...visitorForm, purpose: e.target.value})} />
+                             <button className="bg-slate-900 text-white rounded font-bold">Generate Pass</button>
+                         </form>
+                         <button onClick={() => setShowNewVisitor(false)} className="text-xs text-red-500 mt-2 underline">Cancel</button>
+                     </div>
+                 )}
+
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-500">
+                            <tr>
+                                <th className="p-3">Name</th>
+                                <th className="p-3">Host</th>
+                                <th className="p-3">Purpose</th>
+                                <th className="p-3">Check In</th>
+                                <th className="p-3">Status</th>
+                                <th className="p-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {visitors.map(v => (
+                                <tr key={v.id} className="hover:bg-slate-50">
+                                    <td className="p-3 font-medium">{v.name}</td>
+                                    <td className="p-3">{v.hostName}</td>
+                                    <td className="p-3">{v.purpose}</td>
+                                    <td className="p-3 text-slate-500">{new Date(v.checkInTime).toLocaleString()}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${v.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                                            {v.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">
+                                        {v.status === 'Checked In' && (
+                                            <button onClick={async () => { await api.checkoutVisitor(v.id); loadVisitors(); }} className="text-red-600 hover:text-red-800 font-bold text-xs border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition">Check Out</button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
+            </div>
+        )}
+
+        {activeTab === 'logs' && (
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg">System Access Logs</h3>
+                    <button onClick={loadLogs} className="text-brand-600 hover:text-brand-800"><RefreshCw size={18}/></button>
+                </div>
+                <div className="overflow-x-auto h-[600px] overflow-y-scroll border rounded-lg">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 sticky top-0 shadow-sm">
+                            <tr>
+                                <th className="p-3 text-slate-500 font-medium">Timestamp</th>
+                                <th className="p-3 text-slate-500 font-medium">User ID</th>
+                                <th className="p-3 text-slate-500 font-medium">Action</th>
+                                <th className="p-3 text-slate-500 font-medium">Status</th>
+                                <th className="p-3 text-slate-500 font-medium">Device / Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {logs.map(l => (
+                                <tr key={l.id} className="hover:bg-slate-50">
+                                    <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(l.timestamp).toLocaleString()}</td>
+                                    <td className="p-3 font-mono text-slate-700">{l.memberId}</td>
+                                    <td className="p-3 font-medium">{l.action}</td>
+                                    <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs font-bold ${l.status === 'GRANTED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{l.status}</span></td>
+                                    <td className="p-3 text-slate-500 text-xs">{l.notes || l.deviceId}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
         )}
 
       </div>
