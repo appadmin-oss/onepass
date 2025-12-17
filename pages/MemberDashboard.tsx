@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, AlertCircle, History, LogOut, Lock, User, Sparkles, QrCode, Settings, X, Lightbulb, Map, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Wallet, AlertCircle, History, LogOut, Lock, User, Sparkles, QrCode, Settings, X, Lightbulb, Map, ChevronRight, CheckCircle2, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { generateMemberInsights } from '../services/ai';
@@ -25,10 +25,8 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
 
   // Modals
   const [showDigitalId, setShowDigitalId] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showWithdrawal, setShowWithdrawal] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -51,16 +49,11 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
       setSessions(sess || []);
       setJourney(journ || []);
       
-      // AI Insights
       const aiText = await generateMemberInsights(userData, tx);
       setInsight(aiText);
       
-      // Wallet Lock Logic: 
-      // User must explicitly scroll/acknowledge or have viewed dashboard recently
-      // For this demo, we unlock after 2 seconds to simulate "Reading"
       setTimeout(() => {
           if (userData.outstandingFines > 0) {
-              // Keep locked if fines exist (CACENTRE Rule)
               setIsWalletLocked(true);
           } else {
               setIsWalletLocked(false);
@@ -119,28 +112,57 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
   // --- RENDER LOGIN FLOW ---
   if (step === 1) {
     return (
-      <div className="max-w-sm mx-auto mt-10 animate-fade-in">
-        <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 border-brand-600">
-          <div className="text-center mb-6">
-             <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User className="text-slate-600" size={32} />
-             </div>
-             <h2 className="text-2xl font-bold text-slate-900">CACENTRE Login</h2>
-             <p className="text-slate-500">Member Access Portal</p>
-          </div>
-          <form onSubmit={handleIdSubmit}>
-            <input
-              type="text"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value.toUpperCase())}
-              className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-brand-500 outline-none"
-              placeholder="e.g. VG001"
-              required
-            />
-            <button type="submit" className="w-full bg-brand-600 text-white p-3 rounded-lg font-bold hover:bg-brand-700 transition">
-              Identify
-            </button>
-          </form>
+      <div className="flex items-center justify-center min-h-[70vh] p-4">
+        <div className="w-full max-w-sm">
+            <div className="text-center mb-10">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Vanguard OnePass</h1>
+                <p className="text-slate-500">Secure Access Platform</p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 to-brand-600"></div>
+                
+                <h2 className="text-lg font-bold mb-6 text-slate-800">Select Login Method</h2>
+                
+                <button 
+                  onClick={() => document.getElementById('manual-login')?.classList.remove('hidden')}
+                  className="w-full bg-brand-600 hover:bg-brand-700 text-white p-4 rounded-xl font-bold flex items-center justify-center transition-all shadow-lg shadow-brand-200 mb-4 group"
+                >
+                    <Shield className="mr-3 group-hover:scale-110 transition-transform" fill="currentColor" size={20} />
+                    Login with CACENTRE
+                </button>
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                    <button className="p-3 border border-slate-200 rounded-xl flex flex-col items-center justify-center hover:bg-slate-50 text-slate-600">
+                        <QrCode size={24} className="mb-1 text-slate-400"/>
+                        <span className="text-xs font-bold">Scan QR</span>
+                    </button>
+                    <button className="p-3 border border-slate-200 rounded-xl flex flex-col items-center justify-center hover:bg-slate-50 text-slate-600">
+                        <Lock size={24} className="mb-1 text-slate-400"/>
+                        <span className="text-xs font-bold">Hardware</span>
+                    </button>
+                </div>
+
+                {/* Hidden by default until clicked */}
+                <form id="manual-login" onSubmit={handleIdSubmit} className="hidden animate-fade-in border-t border-slate-100 pt-6">
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Member ID</label>
+                    <input
+                    type="text"
+                    value={memberId}
+                    onChange={(e) => setMemberId(e.target.value.toUpperCase())}
+                    className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-brand-500 outline-none font-mono"
+                    placeholder="e.g. VG001"
+                    required
+                    />
+                    <button type="submit" className="w-full bg-slate-900 text-white p-3 rounded-lg font-bold hover:bg-slate-800 transition">
+                    Continue
+                    </button>
+                </form>
+
+                <div className="mt-6 text-center">
+                    <p className="text-xs text-slate-400">Protected by Vanguard Security Systems v4.0</p>
+                </div>
+            </div>
         </div>
       </div>
     );
@@ -148,34 +170,37 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
 
   if (step === 2) {
     return (
-      <div className="max-w-sm mx-auto mt-10 animate-fade-in">
-        <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 border-brand-600">
-          <div className="text-center mb-6">
-             <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock className="text-slate-600" size={32} />
-             </div>
-             <h2 className="text-2xl font-bold text-slate-800">Secure Entry</h2>
-             <p className="text-slate-500">Password for {memberId}</p>
-          </div>
-          <form onSubmit={handleLogin}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-brand-500 outline-none"
-              placeholder="Password"
-              required
-            />
-            {error && <div className="text-red-500 text-sm mb-4 bg-red-50 p-2 rounded">{error}</div>}
-            <div className="flex gap-2">
-                <button type="button" onClick={() => setStep(1)} className="flex-1 bg-slate-100 text-slate-700 p-3 rounded-lg font-bold hover:bg-slate-200 transition">
-                Back
-                </button>
-                <button type="submit" className="flex-1 bg-brand-600 text-white p-3 rounded-lg font-bold hover:bg-brand-700 transition">
-                Enter
-                </button>
+      <div className="flex items-center justify-center min-h-[70vh] p-4">
+        <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-slate-100 relative">
+            <div className="text-center mb-6">
+                <div className="inline-block p-3 rounded-full bg-brand-50 mb-3">
+                    <Shield className="text-brand-600" size={32} />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800">Verify Identity</h2>
+                <div className="inline-block bg-slate-100 rounded px-2 py-1 mt-2 text-xs font-mono text-slate-600">
+                    {memberId}
+                </div>
             </div>
-          </form>
+            <form onSubmit={handleLogin}>
+                <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-brand-500 outline-none text-center tracking-widest"
+                    placeholder="••••••••"
+                    required
+                    autoFocus
+                />
+                {error && <div className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded-lg text-center font-medium">{error}</div>}
+                <div className="flex gap-2">
+                    <button type="button" onClick={() => setStep(1)} className="w-1/3 bg-slate-100 text-slate-700 p-3 rounded-lg font-bold hover:bg-slate-200 transition">
+                    Back
+                    </button>
+                    <button type="submit" className="flex-1 bg-brand-600 text-white p-3 rounded-lg font-bold hover:bg-brand-700 transition">
+                    Authenticate
+                    </button>
+                </div>
+            </form>
         </div>
       </div>
     );
@@ -231,11 +256,14 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
       )}
 
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 border border-slate-200">
         <div className="flex items-center space-x-4 w-full">
             <img src={user?.photoUrl} alt="Profile" className="w-16 h-16 rounded-full object-cover border-2 border-slate-200" />
             <div className="flex-1">
-                <h1 className="text-xl font-bold text-slate-900">{user?.name}</h1>
+                <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-xl font-bold text-slate-900">{user?.name}</h1>
+                    <span className="bg-brand-100 text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-200">CACENTRE</span>
+                </div>
                 <span className="text-sm text-slate-500">{user?.role} • {activeSession ? `${activeSession.name} Session` : 'Break'}</span>
             </div>
             <div className="flex gap-2">
