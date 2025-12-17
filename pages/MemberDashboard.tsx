@@ -159,8 +159,9 @@ export default function MemberDashboard({ user, setUser }: MemberDashboardProps)
                     </button>
                 </form>
 
-                <div className="mt-6 text-center">
-                    <p className="text-xs text-slate-400">Protected by Vanguard Security Systems v4.0</p>
+                <div className="mt-6 text-center flex justify-center items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <p className="text-xs text-slate-400">System Online • CACENTRE</p>
                 </div>
             </div>
         </div>
