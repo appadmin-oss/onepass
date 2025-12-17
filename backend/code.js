@@ -1,14 +1,17 @@
 /**
- * Vanguard OnePass™ - Backend Logic
+ * Vanguard OnePass™ - Backend Logic (Google Apps Script)
  * 
- * CORE FUNCTIONALITY:
- * - doGet: Serves the Web App
- * - doPost: Handles QR Scans from external devices
- * - API: Handles frontend requests via google.script.run
+ * DEPLOYMENT INSTRUCTIONS:
+ * 1. Create a new Google Sheet.
+ * 2. Extensions > Apps Script.
+ * 3. Paste this code into Code.gs.
+ * 4. Deploy > New Deployment > Type: Web App.
+ * 5. Execute as: Me (your account).
+ * 6. Who has access: Anyone.
+ * 7. Copy the Web App URL and paste it into the Admin Dashboard > Integration tab.
  */
 
 // --- CONFIGURATION ---
-const SPREADSHEET_ID = '1UtyZrdfUFgyyU8cM2Mq1H4nInte7NzAsa3iFz6i6Oa8'; // User to replace
 const SHEET_NAMES = {
   DB: 'Central DB',
   CONFIG: 'Config',
@@ -16,232 +19,236 @@ const SHEET_NAMES = {
   LOGS: 'Access Logs'
 };
 
-// --- WEB APP SERVING ---
+const ORG_ID_DEFAULT = 'ORG_CACENTRE_001';
+
+// --- API GATEWAY ---
 
 function doGet(e) {
-  // Determine if we serve mobile/admin/reception specific view or the main SPA
-  // For SPA, we serve index.html
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('Vanguard OnePass')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
+  // Handle CORS and Response formatting
+  const lock = LockService.getScriptLock();
+  lock.tryLock(10000);
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
-
-// --- CLOUD BRAIN (QR SCANNER ENDPOINT) ---
-
-function doPost(e) {
-  // Handles POST requests from QR Scanner app
-  // Expects JSON payload: { "id": "VG001" }
-  
-  let result = { allowed: false, message: "System Error" };
-  
   try {
-    const postData = JSON.parse(e.postData.contents);
-    const memberId = postData.id;
+    const action = e.parameter.action;
     
-    if (!memberId) throw new Error("No ID provided");
+    // Health Check
+    if (!action) {
+      return response({ status: 'Online', version: 'v4.1.0', mode: 'CACENTRE' });
+    }
+
+    let result = { success: false, message: 'Unknown Action' };
+
+    switch (action) {
+      case 'getMembers':
+        result = { success: true, data: getAllMembers() };
+        break;
+      case 'sync':
+        compileCentralDB();
+        result = { success: true, message: 'Central DB Compiled Successfully' };
+        break;
+      case 'sendEmail':
+        const sent = sendEmailInternal(e.parameter.to, e.parameter.subject, e.parameter.body);
+        result = { success: sent, message: sent ? 'Email Sent' : 'Email Failed' };
+        break;
+      case 'getStats':
+        result = { success: true, data: getSystemStats() };
+        break;
+      default:
+        result = { success: false, message: 'Invalid Action Endpoint' };
+    }
     
-    result = processScan(memberId);
+    return response(result);
     
   } catch (error) {
-    result.message = error.message;
-    console.error("doPost Error", error);
+    return response({ success: false, error: error.toString() });
+  } finally {
+    lock.releaseLock();
   }
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const postData = JSON.parse(e.postData.contents);
+    const action = e.parameter.action || postData.action || 'scan';
+    let result = { success: false };
+
+    if (action === 'scan') {
+       result = processScan(postData.id);
+    } else if (action === 'log_transaction') {
+       logTransaction(postData);
+       result = { success: true };
+    }
+    
+    return response(result);
+  } catch (error) {
+    return response({ success: false, error: error.toString() });
+  }
 }
 
 // --- CORE LOGIC ---
 
-function processScan(memberId) {
-  const db = getDB();
-  const member = db.find(m => m.id === memberId);
-  const logSheet = getSheet(SHEET_NAMES.LOGS);
-  
-  if (!member) {
-    logAccess(memberId, 'SCAN', 'DENIED', 'Unknown ID');
-    return { allowed: false, message: "Member Not Found" };
-  }
-  
-  // Status Checks
-  if (member.status === 'Suspended' || member.status === 'Blocked') {
-    logAccess(memberId, 'SCAN', 'DENIED', member.status);
-    return { 
-      allowed: false, 
-      message: `Access Denied: ${member.status}`,
-      member: sanitizeMember(member)
-    };
-  }
-  
-  // Late Check
-  const now = new Date();
-  const config = getConfig();
-  const resumptionTime = parseTime(config.resumptionTime || "08:30");
-  
-  let isLate = false;
-  if (now.getHours() > resumptionTime.hours || (now.getHours() === resumptionTime.hours && now.getMinutes() > resumptionTime.minutes)) {
-    isLate = true;
-    // Apply Fine Logic
-    applyLateFine(member, config.lateFineAmount);
-  }
-  
-  logAccess(memberId, 'SCAN', 'GRANTED', isLate ? 'Late Entry' : 'On Time');
-  
-  return {
-    allowed: true,
-    name: member.name,
-    role: member.role,
-    photo: member.photoUrl,
-    wallet: member.walletBalance,
-    fines: member.outstandingFines,
-    status: isLate ? 'Late' : member.status
-  };
-}
-
-// --- API FOR FRONTEND ---
-
-function loginMember(id, password) {
-  const member = getMemberById(id);
-  if (!member) return { success: false, error: 'Member not found' };
-  
-  // In production, use utilities.computeDigest(SHA_256)
-  // For MVP/Demo, simple comparison (Assume password stored in hidden column or separate sheet)
-  // Here assuming password = "VanguardWallet" for demo
-  const validPass = password === "VanguardWallet"; 
-  
-  if (validPass) {
-    return { success: true, member: sanitizeMember(member) };
-  }
-  return { success: false, error: 'Invalid Password' };
-}
-
-function getMemberDetails(id) {
-  const m = getMemberById(id);
-  return m ? sanitizeMember(m) : null;
-}
-
-function getMemberHistory(id) {
-  const sheet = getSheet(SHEET_NAMES.LEDGER);
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  
-  // Simple filter - in production use optimized query
-  const txs = data.filter(row => row[1] === id).map(row => ({
-    timestamp: row[0],
-    memberId: row[1],
-    type: row[2],
-    amount: row[3],
-    description: row[4],
-    reference: row[5]
-  }));
-  
-  // Return last 20 reversed
-  return txs.reverse().slice(0, 20);
-}
-
 function getAllMembers() {
-  return getDB().map(sanitizeMember);
+  const sheet = getSheet(SHEET_NAMES.DB);
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift(); // Remove headers
+  
+  if (!data || data.length === 0) return [];
+
+  // Map Central DB columns to Member Interface
+  // Assumes strictly enforced headers: Member ID | Name | Role | Status | Photo URL | Wallet | Fines | Points
+  return data.map(row => ({
+    id: String(row[0]),
+    organizationId: ORG_ID_DEFAULT,
+    name: String(row[1]),
+    role: String(row[2]),
+    status: String(row[3]),
+    photoUrl: String(row[4]),
+    walletBalance: Number(row[5]) || 0,
+    outstandingFines: Number(row[6]) || 0,
+    rewardPoints: Number(row[7]) || 0,
+    email: String(row[8] || "")
+  })).filter(m => m.id && m.id !== '');
+}
+
+function compileCentralDB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let targetSheet = ss.getSheetByName(SHEET_NAMES.DB);
+  if (!targetSheet) {
+    targetSheet = ss.insertSheet(SHEET_NAMES.DB);
+    // Set Header
+    targetSheet.getRange(1, 1, 1, 9).setValues([['Member ID', 'Full Name', 'Role', 'Status', 'Photo URL', 'Wallet Balance', 'Outstanding Fines', 'Reward Points', 'Email']]);
+    targetSheet.setFrozenRows(1);
+  }
+
+  // Sources to compile
+  const sources = ['Import-MGT', 'Import-NGV', 'Import-NGG', 'Import-MAM'];
+  const compiledData = [];
+  const existingMap = getExistingWalletMap(targetSheet);
+
+  sources.forEach(sourceName => {
+    const sheet = ss.getSheetByName(sourceName);
+    if (!sheet) return;
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+    if (!data.length) return;
+
+    // Dynamic Column Mapping
+    const map = {
+      id: headers.indexOf('Member ID'),
+      name: headers.indexOf('Full Name'),
+      role: headers.indexOf('Role'),
+      status: headers.indexOf('Status'),
+      photo: headers.indexOf('Image') > -1 ? headers.indexOf('Image') : headers.indexOf('Photo URL'),
+      email: headers.indexOf('Email')
+    };
+
+    // If critical columns missing, try smart matching or skip
+    if (map.id === -1) map.id = 0; 
+    if (map.name === -1) map.name = 1;
+
+    data.forEach(row => {
+      const id = String(row[map.id]);
+      if (!id || id === '') return;
+
+      // Preserve existing wallet/fines/points if member exists
+      const existing = existingMap[id] || { wallet: 0, fines: 0, points: 0 };
+
+      compiledData.push([
+        id,
+        row[map.name],
+        map.role > -1 ? row[map.role] : getDefaultRole(sourceName),
+        map.status > -1 ? row[map.status] : 'Active',
+        map.photo > -1 ? row[map.photo] : '',
+        existing.wallet,
+        existing.fines,
+        existing.points,
+        map.email > -1 ? row[map.email] : ''
+      ]);
+    });
+  });
+
+  // Write Back to Central DB
+  if (compiledData.length > 0) {
+    // Clear content but leave headers
+    const lastRow = targetSheet.getLastRow();
+    if (lastRow > 1) targetSheet.getRange(2, 1, lastRow - 1, 9).clearContent();
+    
+    targetSheet.getRange(2, 1, compiledData.length, 9).setValues(compiledData);
+  }
+  
+  return true;
+}
+
+// Helper to preserve financial data during sync
+function getExistingWalletMap(sheet) {
+  const data = sheet.getDataRange().getValues();
+  data.shift(); // Remove headers
+  const map = {};
+  data.forEach(row => {
+    if (row[0]) {
+      map[String(row[0])] = {
+        wallet: row[5],
+        fines: row[6],
+        points: row[7]
+      };
+    }
+  });
+  return map;
+}
+
+function getDefaultRole(source) {
+  if (source.includes('MGT')) return 'Management';
+  if (source.includes('NGV')) return 'Vanguard';
+  return 'Member';
+}
+
+function sendEmailInternal(to, subject, body) {
+  if (!to) return false;
+  try {
+    MailApp.sendEmail({
+      to: to,
+      subject: `[CACENTRE] ${subject}`,
+      htmlBody: body,
+      name: 'Vanguard OnePass System'
+    });
+    return true;
+  } catch (e) {
+    console.error('Email Error: ' + e.toString());
+    return false;
+  }
+}
+
+function processScan(id) {
+  // Hardware simulation endpoint
+  const sheet = getSheet(SHEET_NAMES.LOGS);
+  sheet.appendRow([new Date(), id, 'SCAN', 'GRANTED', 'Hardware/API']);
+  return { allowed: true, message: 'Logged via API' };
+}
+
+function logTransaction(data) {
+  const sheet = getSheet(SHEET_NAMES.LEDGER);
+  sheet.appendRow([new Date(), data.memberId, data.type, data.amount, data.description, 'API']);
 }
 
 function getSystemStats() {
-  const members = getDB();
-  const totalWallet = members.reduce((sum, m) => sum + (m.walletBalance || 0), 0);
-  const totalFines = members.reduce((sum, m) => sum + (m.outstandingFines || 0), 0);
-  
-  // Count logs for today
-  const logSheet = getSheet(SHEET_NAMES.LOGS);
-  // This is expensive in GAS, optimize in prod
-  const activeToday = 0; // Placeholder for logic: count unique IDs in LOGS where date == today
-  
+  const members = getAllMembers();
   return {
     totalMembers: members.length,
-    activeToday: 42, // Mock for speed
-    totalWallet: totalWallet,
-    totalFines: totalFines
+    activeToday: 0 // Calculation requires logs parsing, simplified for now
   };
 }
 
-// --- HELPERS ---
+// --- UTILS ---
 
 function getSheet(name) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    // Initialize headers if new
-    if (name === SHEET_NAMES.DB) sheet.appendRow(['Member ID', 'Full Name', 'Role', 'Status', 'Photo URL', 'Wallet Balance', 'Outstanding Fines', 'Reward Points']);
-    if (name === SHEET_NAMES.LEDGER) sheet.appendRow(['Timestamp', 'Member ID', 'Type', 'Amount', 'Description', 'Reference']);
-    if (name === SHEET_NAMES.LOGS) sheet.appendRow(['Timestamp', 'Member ID', 'Action', 'Status', 'Notes']);
-  }
+  if (!sheet) sheet = ss.insertSheet(name);
   return sheet;
 }
 
-function getDB() {
-  const sheet = getSheet(SHEET_NAMES.DB);
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  return data.map(row => ({
-    id: row[0],
-    name: row[1],
-    role: row[2],
-    status: row[3],
-    photoUrl: row[4],
-    walletBalance: row[5],
-    outstandingFines: row[6],
-    rewardPoints: row[7]
-  }));
-}
-
-function getMemberById(id) {
-  return getDB().find(m => m.id === id);
-}
-
-function sanitizeMember(m) {
-  // Remove sensitive data if any
-  return m;
-}
-
-function logAccess(id, action, status, notes) {
-  const sheet = getSheet(SHEET_NAMES.LOGS);
-  sheet.appendRow([new Date(), id, action, status, notes]);
-}
-
-function applyLateFine(member, amount) {
-  if (!amount || amount <= 0) return;
-  const sheet = getSheet(SHEET_NAMES.LEDGER);
-  sheet.appendRow([new Date(), member.id, 'Fine', -amount, 'Late Arrival Fine', 'AUTO']);
-  
-  // Update DB cache/sheet immediately? 
-  // For MVP, we rely on Ledger to calculate balance, but DB has a 'Outstanding Fines' cache column.
-  // We need to update that column.
-  updateMemberField(member.id, 6, (member.outstandingFines || 0) + amount); // 6 is Fines column index (0-based)
-}
-
-function updateMemberField(id, colIndex, value) {
-  const sheet = getSheet(SHEET_NAMES.DB);
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
-      sheet.getRange(i + 1, colIndex + 1).setValue(value);
-      break;
-    }
-  }
-}
-
-function getConfig() {
-  return {
-    resumptionTime: "08:30",
-    lateFineAmount: 5000
-  };
-}
-
-function parseTime(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  return { hours: h, minutes: m };
+function response(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
