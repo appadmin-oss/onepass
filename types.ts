@@ -1,24 +1,49 @@
+
 export enum Role {
   ADMIN = 'Admin',
   MEMBER = 'Member',
   STAFF = 'Staff',
-  GUEST = 'Guest'
+  GUEST = 'Guest',
+  MASTER = 'MasterAdmin'
 }
 
 export enum Status {
   ACTIVE = 'Active',
   LATE = 'Late',
   SUSPENDED = 'Suspended',
-  BLOCKED = 'Blocked'
+  BLOCKED = 'Blocked',
+  LOCKED = 'Locked' // Financial lock
 }
 
-export type OrganizationType = 'CACENTRE' | 'GENERAL';
+export type SessionType = 'Toni' | 'Medi' | 'Summer' | 'Domi';
+
+export interface Session {
+  id: string;
+  type: SessionType;
+  year: number;
+  startDate: string;
+  isCurrent: boolean;
+}
+
+export interface JourneyItem {
+  id: string;
+  title: string;
+  scope: 'Weekly' | 'Monthly' | 'Yearly';
+  required: boolean;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  points: number;
+}
 
 export interface Organization {
   id: string;
   name: string;
-  type: OrganizationType;
-  logoUrl?: string;
+  type: 'CACENTRE' | 'GENERAL';
+  isPaid: boolean;
+  settings: {
+    walletEnabled: boolean;
+    journeysEnabled: boolean;
+    customHeaders?: Record<string, string>;
+  };
 }
 
 export interface Member {
@@ -28,50 +53,69 @@ export interface Member {
   role: Role;
   status: Status;
   photoUrl: string;
+  qrUrl?: string; // Link for custom QR code
   walletBalance: number;
   outstandingFines: number;
   rewardPoints: number;
-  password?: string;
-  lastDashboardView?: string; // For Wallet Lock logic
+  lastDashboardView?: string; 
+  fineDeadline?: string;
+  sessionProgress: number; 
+}
+
+export interface AttendanceRecord {
+  timestamp: string;
+  type: 'IN' | 'OUT';
+  status: 'NORMAL' | 'LATE';
+}
+
+export interface HardwareNode {
+  id: string;
+  name: string;
+  type: 'RFID' | 'Camera' | 'NFC';
+  status: 'Online' | 'Offline';
+  lastPing: string;
+  securityKey: string;
 }
 
 export interface Visitor {
   id: string;
-  organizationId: string;
   name: string;
-  hostName: string;
-  purpose: string;
-  checkInTime: string;
-  checkOutTime?: string;
+  hostId: string;
+  hostName?: string;
+  status: 'Active' | 'Expired' | 'CheckedOut';
   expiresAt: string;
-  status: 'Checked In' | 'Checked Out' | 'Expired';
+}
+
+export interface SystemConfig {
+  resumptionTime: string;
+  lateFineAmount: number;
+  gasWebAppUrl?: string;
+  publicSheetCsvUrl?: string;
+  masterUpdateUrl: string;
+  version: string;
+}
+
+export interface SyncConflict {
+  memberId: string;
+  name: string;
+  field: string;
+  localValue: any;
+  sheetValue: any;
 }
 
 export interface Transaction {
   id: string;
-  timestamp: string;
-  memberId: string;
-  type: 'Credit' | 'Debit' | 'Fine' | 'Award';
+  type: 'Credit' | 'Debit';
   amount: number;
   description: string;
-  reference?: string;
-}
-
-export interface AccessLog {
-  id: string;
-  timestamp: string;
-  memberId: string;
-  action: string;
-  status: string;
-  notes?: string;
-  deviceId?: string;
+  date: string;
 }
 
 export interface ScanResult {
   allowed: boolean;
-  member: Partial<Member> | Visitor;
-  message?: string;
-  isVisitor?: boolean;
+  message: string;
+  member?: Member;
+  visitor?: Visitor;
 }
 
 export interface ChatMessage {
@@ -79,71 +123,4 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: Date;
-}
-
-export interface SystemConfig {
-  resumptionTime: string;
-  lateFineAmount: number;
-  autoSuspendThreshold: number;
-  maintenanceMode: boolean;
-  currentSessionId?: string;
-  // Google Integration
-  googleSheetsId?: string;
-  gasWebAppUrl?: string;
-  lastSyncTime?: string;
-}
-
-export interface WithdrawalRequest {
-  id: string;
-  memberId: string;
-  memberName: string;
-  amount: number;
-  timestamp: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-}
-
-// --- CACENTRE SPECIFIC TYPES ---
-
-export type SessionName = 'Toni' | 'Medi' | 'Summer' | 'Domi';
-
-export interface Session {
-  id: string;
-  name: SessionName;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  weekCurrent: number;
-  weekTotal: number;
-}
-
-export interface JourneyItem {
-  id: string;
-  sessionId: string;
-  title: string;
-  description: string;
-  category: 'Attendance' | 'Participation' | 'Development';
-  required: boolean;
-  status: 'Pending' | 'In Progress' | 'Completed';
-  progress: number; // 0-100
-}
-
-export interface DeviceEvent {
-  device_id: string;
-  organization_id: string;
-  actor_type: 'MEMBER' | 'VISITOR';
-  actor_id: string;
-  event_type: 'ENTRY' | 'EXIT' | 'ATTENDANCE';
-  timestamp: string;
-  metadata?: any;
-}
-
-export interface WeeklyReport {
-  id: string;
-  weekNumber: number;
-  year: number;
-  session: SessionName;
-  attendanceRate: number;
-  totalFines: number;
-  generatedAt: string;
-  url: string; // link to PDF/CSV
 }
