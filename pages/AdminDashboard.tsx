@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Shield, LayoutDashboard, Settings, Cpu, Wifi, Activity, 
   Search, RefreshCw, Server, Download, Cloud, Clock, AlertTriangle, 
   ShieldCheck, LogOut, QrCode, TrendingUp, PieChart as PieIcon, BarChart3, Layers,
-  FileDown, X, Edit2, Check, BookOpen, ExternalLink, Link as LinkIcon
+  FileDown, X, Edit2, Check, BookOpen, ExternalLink, Link as LinkIcon, UserPlus, Calendar, Upload
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { api } from '../services/api';
-import { Member, Status, SystemConfig, HardwareNode, SyncConflict, Role, AttendanceRecord, JourneyItem } from '../types';
+import { api } from '../services/api.ts';
+import { Member, Status, SystemConfig, HardwareNode, SyncConflict, Role, AttendanceRecord, JourneyItem, Visitor } from '../types.ts';
 
 const COLORS = ['#0ea5e9', '#6366f1', '#f59e0b', '#ef4444'];
 
@@ -23,6 +23,7 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
   const [journey, setJourney] = useState<JourneyItem[]>([]);
   const [qrLink, setQrLink] = useState(member.qrUrl || '');
   const [isUpdatingQr, setIsUpdatingQr] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.getMemberAttendanceHistory(member.id).then(setAttendance);
@@ -34,6 +35,22 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
     await api.updateMemberQrUrl(member.id, qrLink);
     setIsUpdatingQr(false);
     onUpdate();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        setIsUpdatingQr(true);
+        await api.updateMemberQrUrl(member.id, base64String);
+        setQrLink(base64String);
+        setIsUpdatingQr(false);
+        onUpdate();
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const chartData = attendance.map(a => ({
@@ -105,7 +122,7 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
               </div>
 
               <div className="pt-4 border-t border-slate-100 space-y-4">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">QR Code URL (Link Upload)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">QR Code Hub (Link or Upload)</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -118,6 +135,13 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
                     />
                   </div>
                   <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all"
+                  >
+                    <Upload size={20} />
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                  <button 
                     onClick={handleUpdateQr}
                     disabled={isUpdatingQr}
                     className="p-3 bg-slate-900 text-white rounded-xl hover:bg-brand-600 transition-all"
@@ -125,6 +149,11 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
                     {isUpdatingQr ? <RefreshCw className="animate-spin" size={20} /> : <Check size={20} />}
                   </button>
                 </div>
+                {qrLink && qrLink.startsWith('data:image') && (
+                  <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center">
+                    <img src={qrLink} className="w-24 h-24 object-contain" alt="QR Preview" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -156,19 +185,23 @@ const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
 };
 
 export default function AdminDashboard({ user, setUser }: { user: any; setUser: any }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'hardware' | 'sync' | 'guide'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'visitors' | 'hardware' | 'sync' | 'guide'>('overview');
   const [members, setMembers] = useState<Member[]>([]);
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [visitorSearch, setVisitorSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const m = await api.getAllMembers();
+    const [m, v] = await Promise.all([api.getAllMembers(), api.getAllVisitors()]);
     setMembers(m);
+    setVisitors(v);
   };
 
   const handleSync = async () => {
@@ -223,6 +256,28 @@ export default function AdminDashboard({ user, setUser }: { user: any; setUser: 
     m.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredVisitors = visitors.filter(v => {
+    const matchesSearch = v.name.toLowerCase().includes(visitorSearch.toLowerCase()) || 
+                         v.hostName?.toLowerCase().includes(visitorSearch.toLowerCase()) ||
+                         v.id.toLowerCase().includes(visitorSearch.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    if (dateRange.start || dateRange.end) {
+      const exp = new Date(v.expiresAt).getTime();
+      const start = dateRange.start ? new Date(dateRange.start).getTime() : 0;
+      const end = dateRange.end ? new Date(dateRange.end).getTime() : Infinity;
+      return exp >= start && exp <= end;
+    }
+    
+    return true;
+  });
+
+  const handleCheckout = async (id: string) => {
+    await api.checkoutVisitor(id);
+    loadData();
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 animate-fade-in relative">
       {selectedMember && (
@@ -248,6 +303,7 @@ export default function AdminDashboard({ user, setUser }: { user: any; setUser: 
         {[
           { id: 'overview', icon: LayoutDashboard, label: 'Hub Intelligence' },
           { id: 'members', icon: Users, label: 'Identity Core' },
+          { id: 'visitors', icon: UserPlus, label: 'Visitor Protocol' },
           { id: 'hardware', icon: Cpu, label: 'Mesh Nodes' },
           { id: 'sync', icon: RefreshCw, label: 'Sheet Polling' },
           { id: 'guide', icon: BookOpen, label: 'Admin Guide' }
@@ -417,6 +473,101 @@ export default function AdminDashboard({ user, setUser }: { user: any; setUser: 
           </div>
         )}
 
+        {activeTab === 'visitors' && (
+          <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden animate-slide-up">
+            <div className="p-8 border-b border-slate-50 space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input 
+                    type="text" 
+                    placeholder="Search Visitors, Hosts, or IDs..." 
+                    value={visitorSearch}
+                    onChange={e => setVisitorSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold text-slate-800 focus:border-brand-500 transition-all" 
+                  />
+                </div>
+                <div className="flex gap-2">
+                   <div className="relative">
+                      <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="date" 
+                        value={dateRange.start}
+                        onChange={e => setDateRange({...dateRange, start: e.target.value})}
+                        className="pl-10 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xs font-black outline-none focus:border-brand-500"
+                      />
+                   </div>
+                   <div className="relative">
+                      <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="date" 
+                        value={dateRange.end}
+                        onChange={e => setDateRange({...dateRange, end: e.target.value})}
+                        className="pl-10 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xs font-black outline-none focus:border-brand-500"
+                      />
+                   </div>
+                   <button onClick={() => setDateRange({start: '', end: ''})} className="p-4 bg-slate-100 rounded-2xl text-slate-400 hover:text-slate-600">
+                     <X size={20} />
+                   </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                  <tr>
+                    <th className="p-6">Visitor</th>
+                    <th className="p-6">Host Member</th>
+                    <th className="p-6">Expiration</th>
+                    <th className="p-6">Status</th>
+                    <th className="p-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-bold">
+                  {filteredVisitors.map(v => (
+                    <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6">
+                        <div>
+                          <p className="text-slate-900 text-sm">{v.name}</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{v.id}</p>
+                        </div>
+                      </td>
+                      <td className="p-6 text-sm">
+                        <span className="text-slate-700">{v.hostName}</span>
+                        <p className="text-[10px] text-slate-400 font-mono">{v.hostId}</p>
+                      </td>
+                      <td className="p-6 text-xs text-slate-500">
+                        {new Date(v.expiresAt).toLocaleString()}
+                      </td>
+                      <td className="p-6">
+                        <span className={`px-2 py-1 rounded-full text-[9px] uppercase tracking-widest ${v.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                          {v.status}
+                        </span>
+                      </td>
+                      <td className="p-6 text-right">
+                        {v.status === 'Active' && (
+                          <button 
+                            onClick={() => handleCheckout(v.id)}
+                            className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all text-xs font-black"
+                          >
+                            CHECK OUT
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredVisitors.length === 0 && (
+                <div className="p-20 text-center text-slate-300 font-black uppercase tracking-widest text-sm">
+                  No Visitor Logs Found
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'hardware' && (
           <div className="space-y-6 animate-slide-up">
             <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex justify-between items-center">
@@ -510,25 +661,21 @@ export default function AdminDashboard({ user, setUser }: { user: any; setUser: 
                   </li>
                   <li className="flex gap-3">
                     <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
-                    <p><span className="text-slate-900">QR Provisioning:</span> Admins can link custom QR codes per member by pasting an image link in the member detail panel.</p>
+                    <p><span className="text-slate-900">QR Provisioning:</span> Admins can link custom QR codes per member by pasting an image link or uploading a file in the member detail panel.</p>
                   </li>
                 </ul>
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Sync & Automation</h4>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Visitor Protocol</h4>
                 <ul className="space-y-4 text-sm font-bold text-slate-700">
                   <li className="flex gap-3">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
-                    <p><span className="text-slate-900">Optional Cloud:</span> Google Apps Script integration is purely for external synchronization. The system works 100% offline using local persistence.</p>
+                    <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Access Logs:</span> Monitor all active visitors and check them out manually from the Visitor Protocol tab.</p>
                   </li>
                   <li className="flex gap-3">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
-                    <p><span className="text-slate-900">Conflict Hub:</span> If a mismatch occurs during polling, the Hub will ask you to verify which data source is authoritative.</p>
-                  </li>
-                  <li className="flex gap-3">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
-                    <p><span className="text-slate-900">Data Portability:</span> Use the CSV Export tool to back up your identity core at any time for spreadsheet analysis.</p>
+                    <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Filtering:</span> Use date ranges and search filters to locate specific visit records for security auditing.</p>
                   </li>
                 </ul>
               </div>
@@ -546,3 +693,4 @@ export default function AdminDashboard({ user, setUser }: { user: any; setUser: 
     </div>
   );
 }
+
