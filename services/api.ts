@@ -110,6 +110,8 @@ export const api = {
     return { allowed: false, message: "Identity Unknown. Protocol Denied." };
   },
 
+  getAllVisitors: async () => MOCK_VISITORS,
+
   createVisitor: async (data: any): Promise<Visitor> => {
     const newVisitor: Visitor = {
       id: `VIS-${Math.floor(Math.random() * 10000)}`,
@@ -222,3 +224,4 @@ export const api = {
     ];
   }
 };
+
