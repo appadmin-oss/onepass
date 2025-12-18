@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Sparkles, AlertCircle } from 'lucide-react';
 import { Member, ChatMessage, Transaction } from '../types';
 import { createAssistantSession } from '../services/ai';
 import { api } from '../services/api';
@@ -13,7 +14,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
     {
       id: 'welcome',
       role: 'model',
-      text: `Hello ${user ? user.name.split(' ')[0] : 'there'}! I'm your Vanguard AI Concierge. How can I help you today?`,
+      text: `Greetings ${user ? user.name.split(' ')[0] : 'Vanguard'}! I am your OnePass Hub Intelligence. How can I assist your organizational journey today?`,
       timestamp: new Date()
     }
   ]);
@@ -25,10 +26,8 @@ export default function AIAssistant({ user }: AIAssistantProps) {
 
   useEffect(() => {
     if (user) {
-      // Load context for the AI
       api.getHistory(user.id).then(txs => {
         setTransactions(txs);
-        // Initialize chat session with context
         chatSessionRef.current = createAssistantSession(user, txs);
       });
     }
@@ -58,23 +57,22 @@ export default function AIAssistant({ user }: AIAssistantProps) {
     setLoading(true);
 
     try {
-      const result = await chatSessionRef.current.sendMessage({ message: userMsg.text });
+      const response = await chatSessionRef.current.sendMessage({ message: userMsg.text });
       const modelMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: result.text,
+        text: response.text,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, modelMsg]);
     } catch (error) {
-      console.error("AI Error:", error);
-      const errorMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+      console.error("AI Link Failure:", error);
+      setMessages(prev => [...prev, {
+        id: 'err',
         role: 'model',
-        text: "I'm having trouble connecting to the Cloud Brain right now. Please try again later.",
+        text: "Cloud Intelligence is currently recalibrating. Please check your local portal or contact your administrator.",
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      }]);
     } finally {
       setLoading(false);
     }
@@ -82,49 +80,52 @@ export default function AIAssistant({ user }: AIAssistantProps) {
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <div className="bg-slate-100 p-6 rounded-full mb-4">
-          <Bot size={48} className="text-slate-400" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center animate-fade-in">
+        <div className="bg-slate-100 p-8 rounded-[2.5rem] mb-6 shadow-inner text-slate-400">
+          <Bot size={64} />
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Login Required</h2>
-        <p className="text-slate-500">Please log in to the Member Portal to access your personalized AI Concierge.</p>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Identify Required</h2>
+        <p className="text-slate-500 max-w-xs font-medium">Please authenticate via the Member Portal to link with Hub Intelligence.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-100px)] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* Header */}
-      <div className="bg-brand-900 p-4 flex items-center shadow-sm">
-        <div className="bg-brand-700 p-2 rounded-lg mr-3">
-          <Sparkles className="text-yellow-400" size={20} />
-        </div>
-        <div>
-          <h2 className="text-white font-bold">Vanguard AI Concierge</h2>
-          <p className="text-brand-200 text-xs">Powered by Gemini 2.5 Flash</p>
+    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden animate-fade-in">
+      {/* Dynamic Header */}
+      <div className="bg-slate-900 p-5 flex items-center justify-between shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="bg-brand-600 p-2.5 rounded-2xl shadow-lg ring-4 ring-slate-800">
+            <Sparkles className="text-white" size={24} />
+          </div>
+          <div>
+            <h2 className="text-white font-black tracking-tight text-lg leading-none mb-1">Hub Intelligence</h2>
+            <div className="flex items-center gap-2">
+               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+               <p className="text-brand-400 text-[10px] font-black uppercase tracking-widest">Gemini 3 Flash Active</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+      {/* Stream Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`flex max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mx-2 ${msg.role === 'user' ? 'bg-brand-100' : 'bg-slate-200'}`}>
-                {msg.role === 'user' ? <User size={16} className="text-brand-600" /> : <Bot size={16} className="text-slate-600" />}
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex-shrink-0 h-10 w-10 rounded-2xl flex items-center justify-center mx-3 shadow-sm ${msg.role === 'user' ? 'bg-white text-brand-600' : 'bg-slate-900 text-white'}`}>
+                {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
               </div>
               <div
-                className={`p-3 rounded-2xl text-sm shadow-sm ${
+                className={`p-4 rounded-[1.5rem] text-sm font-medium shadow-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-brand-600 text-white rounded-tr-none'
                     : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
                 }`}
               >
                 {msg.text}
-                <div className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-brand-200' : 'text-slate-400'}`}>
+                <div className={`text-[9px] mt-2 font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-brand-200' : 'text-slate-400'}`}>
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -132,17 +133,13 @@ export default function AIAssistant({ user }: AIAssistantProps) {
           </div>
         ))}
         {loading && (
-          <div className="flex justify-start">
-             <div className="flex max-w-[80%]">
-               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center mx-2">
-                 <Bot size={16} className="text-slate-600" />
-               </div>
-               <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm">
-                 <div className="flex space-x-2">
-                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                 </div>
+          <div className="flex justify-start animate-pulse">
+             <div className="flex items-center gap-3">
+               <div className="h-10 w-10 rounded-2xl bg-slate-200"></div>
+               <div className="bg-white p-5 rounded-[1.5rem] rounded-tl-none border border-slate-100 w-24 flex gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-75"></div>
+                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce delay-150"></div>
                </div>
              </div>
           </div>
@@ -150,23 +147,27 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-200">
-        <div className="relative flex items-center">
+      {/* Control Area */}
+      <form onSubmit={handleSend} className="p-5 bg-white border-t border-slate-100">
+        <div className="relative flex items-center group">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your fines, wallet, or rules..."
-            className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-full focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
+            placeholder="Ask about fines, wallets, or Hub protocols..."
+            className="w-full pl-6 pr-14 py-4 bg-slate-50 border-2 border-slate-100 rounded-full focus:ring-4 focus:ring-brand-100 focus:border-brand-500 focus:bg-white outline-none transition-all font-semibold text-slate-700"
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="absolute right-2 p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-2 p-3 bg-brand-600 text-white rounded-full hover:bg-slate-900 disabled:opacity-30 transition-all shadow-lg active:scale-90"
           >
-            <Send size={18} />
+            <Send size={20} />
           </button>
+        </div>
+        <div className="mt-3 flex items-center justify-center gap-2 opacity-30">
+           <AlertCircle size={10}/>
+           <span className="text-[8px] font-black uppercase tracking-widest">Organizational Data Privacy Active</span>
         </div>
       </form>
     </div>
