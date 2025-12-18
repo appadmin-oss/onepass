@@ -4,28 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Vanguard OnePass</title>
+    <title>Vanguard OnePass™</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Polyfill process for browser compatibility
+      // Crucial: Polyfill for the API service
       window.process = { env: { API_KEY: "" } };
       
-      // Global error tracker to show errors on screen if the app fails to mount
-      window.onerror = function(msg, url, line, col, error) {
-        const root = document.getElementById('root');
-        if (root) {
-          root.innerHTML = `
-            <div style="padding: 2rem; font-family: monospace; color: #ef4444; background: #fee2e2; border-radius: 1rem; margin: 1rem;">
-              <h1 style="font-weight: 900; margin-bottom: 0.5rem;">BOOT_ERROR</h1>
-              <p>${msg}</p>
-              <p style="font-size: 0.75rem; opacity: 0.7;">${url}:${line}:${col}</p>
-              <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #ef4444; color: white; border: none; border-radius: 0.5rem; font-weight: bold; cursor: pointer;">REBOOT SYSTEM</button>
-            </div>
-          `;
-        }
-        return false;
-      };
-
       tailwind.config = {
         theme: {
           extend: {
@@ -62,34 +46,24 @@
 }
 </script>
     <style>
-      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-      
-      .animate-fade-in { animation: fade-in 0.5s ease-out; }
-      .animate-slide-up { animation: slide-up 0.5s ease-out; }
-      .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-      
-      body { -webkit-tap-highlight-color: transparent; }
-      
+      @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       #root:empty::before {
-        content: "VANGUARD_ONEPASS_BOOTING...";
+        content: "VANGUARD_CORE_BOOTING...";
         display: flex;
         align-items: center;
         justify-content: center;
         height: 100vh;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-weight: 900;
-        font-size: 0.75rem;
-        color: #0ea5e9;
+        font-family: monospace;
         background: #0f172a;
-        letter-spacing: 0.3em;
+        color: #0ea5e9;
+        font-weight: bold;
+        letter-spacing: 0.2em;
         animation: pulse-soft 2s infinite ease-in-out;
       }
+      body { margin: 0; background-color: #f8fafc; }
     </style>
   </head>
-  <body class="bg-slate-50 text-slate-900">
+  <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
