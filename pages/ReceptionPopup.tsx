@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Scan, ShieldAlert, Key, RefreshCw, QrCode, Camera, X, UserPlus, LogOut, CheckCircle2 } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { api } from '../services/api';
-import { ScanResult, Member } from '../types';
+// Changed import to use full URL for better compatibility with Vite/Rollup in some environments
+import { Html5QrcodeScanner } from 'https://esm.sh/html5-qrcode@2.3.8';
+import { api } from '../services/api.ts';
+import { ScanResult, Member } from '../types.ts';
 
 export default function ReceptionPopup() {
   const [inputId, setInputId] = useState('');
@@ -14,21 +15,25 @@ export default function ReceptionPopup() {
   const [showVisitorForm, setShowVisitorForm] = useState(false);
   const [visitorData, setVisitorData] = useState({ name: '', hostId: '', purpose: '' });
   
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<any>(null);
 
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
-      scannerRef.current = new Html5QrcodeScanner(
-        "qr-reader", 
-        { fps: 10, qrbox: { width: 250, height: 250 } }, 
-        /* verbose= */ false
-      );
-      scannerRef.current.render(onScanSuccess, onScanFailure);
+      try {
+        scannerRef.current = new Html5QrcodeScanner(
+          "qr-reader", 
+          { fps: 10, qrbox: { width: 250, height: 250 } }, 
+          /* verbose= */ false
+        );
+        scannerRef.current.render(onScanSuccess, onScanFailure);
+      } catch (err) {
+        console.error("Scanner initialization failed", err);
+      }
     }
 
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(err => console.error("Scanner clear failed", err));
+        scannerRef.current.clear().catch((err: any) => console.error("Scanner clear failed", err));
         scannerRef.current = null;
       }
     };
@@ -46,7 +51,7 @@ export default function ReceptionPopup() {
   const stopScanner = () => {
     setIsScanning(false);
     if (scannerRef.current) {
-      scannerRef.current.clear().catch(e => console.error(e));
+      scannerRef.current.clear().catch((e: any) => console.error(e));
       scannerRef.current = null;
     }
   };
@@ -204,3 +209,4 @@ export default function ReceptionPopup() {
     </div>
   );
 }
+
