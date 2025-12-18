@@ -1,516 +1,548 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, AlertTriangle, TrendingUp, Search, Settings, 
-  Database, RefreshCw, DollarSign, Lock, Shield, 
-  CheckCircle, XCircle, Power, FileText, List, UserCheck, Key,
-  Bot, Sparkles, CheckSquare, Square, Contact, Server, Calendar,
-  BarChart2, Download, Link as LinkIcon, Cloud, Upload, Trash2, Edit, CreditCard, Activity
+  Users, Shield, LayoutDashboard, Settings, Cpu, Wifi, Activity, 
+  Search, RefreshCw, Server, Download, Cloud, Clock, AlertTriangle, 
+  ShieldCheck, LogOut, QrCode, TrendingUp, PieChart as PieIcon, BarChart3, Layers,
+  FileDown, X, Edit2, Check, BookOpen, ExternalLink, Link as LinkIcon
 } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { api } from '../services/api';
-import { queryAdminAnalyst } from '../services/ai';
-import { Member, SystemConfig, Role, Status, AccessLog, WithdrawalRequest, Visitor, Session, JourneyItem, WeeklyReport } from '../types';
+import { Member, Status, SystemConfig, HardwareNode, SyncConflict, Role, AttendanceRecord, JourneyItem } from '../types';
 
-interface AdminDashboardProps {
-  user: Member | null;
-  setUser: (member: Member | null) => void;
+const COLORS = ['#0ea5e9', '#6366f1', '#f59e0b', '#ef4444'];
+
+interface MemberModalProps {
+  member: Member;
+  onClose: () => void;
+  onUpdate: () => void;
 }
 
-export default function AdminDashboard({ user, setUser }: AdminDashboardProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminId, setAdminId] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'members' | 'sessions' | 'hardware' | 'integration' | 'finance' | 'logs' | 'visitors'>('overview');
-  const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-
-  // Data State
-  const [members, setMembers] = useState<Member[]>([]);
-  const [visitors, setVisitors] = useState<Visitor[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [config, setConfig] = useState<SystemConfig | null>(null);
-  const [logs, setLogs] = useState<AccessLog[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [reports, setReports] = useState<WeeklyReport[]>([]);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
-  
-  // Member Management State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
-
-  // Config Form State
-  const [gasUrl, setGasUrl] = useState('');
-  const [sheetId, setSheetId] = useState('');
-
-  // Visitor Form State
-  const [showNewVisitor, setShowNewVisitor] = useState(false);
-  const [visitorForm, setVisitorForm] = useState({ name: '', host: '', purpose: '' });
+const MemberDetailModal = ({ member, onClose, onUpdate }: MemberModalProps) => {
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [journey, setJourney] = useState<JourneyItem[]>([]);
+  const [qrLink, setQrLink] = useState(member.qrUrl || '');
+  const [isUpdatingQr, setIsUpdatingQr] = useState(false);
 
   useEffect(() => {
-    if (user?.role === Role.ADMIN) {
-      setIsAuthenticated(true);
-      loadData();
-    }
-  }, [user]);
+    api.getMemberAttendanceHistory(member.id).then(setAttendance);
+    api.getMemberJourney(member.id).then(setJourney);
+  }, [member]);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [m, s, c, sess, rep] = await Promise.all([
-        api.getAllMembers(),
-        api.getStats(),
-        api.getConfig(),
-        api.getSessions(),
-        api.getWeeklyReports()
-      ]);
-      setMembers(m || []);
-      setStats(s);
-      setConfig(c);
-      setSessions(sess || []);
-      setReports(rep || []);
-      
-      if (c) {
-          setGasUrl(c.gasWebAppUrl || '');
-          setSheetId(c.googleSheetsId || '');
-      }
-      
-      // Lazy load these when tab is clicked usually, but we load here for "Full code" simplicity
-      loadLogs();
-      loadWithdrawals();
-      loadVisitors();
-    } catch (e) {
-      console.error("Failed to load admin data");
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const loadLogs = async () => { const l = await api.getAccessLogs(); setLogs(l || []); }
-  const loadWithdrawals = async () => { const w = await api.getPendingWithdrawals(); setWithdrawals(w || []); }
-  const loadVisitors = async () => { const v = await api.getVisitorLogs(); setVisitors(v || []); }
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await api.login(adminId, password);
-      if (res.success && res.member.role === Role.ADMIN) {
-        setUser(res.member);
-        setIsAuthenticated(true);
-        loadData();
-      } else {
-        setError('Access Denied.');
-      }
-    } catch (e) { setError('Login failed'); }
+  const handleUpdateQr = async () => {
+    setIsUpdatingQr(true);
+    await api.updateMemberQrUrl(member.id, qrLink);
+    setIsUpdatingQr(false);
+    onUpdate();
   };
 
-  // --- MEMBER BULK ACTIONS ---
-  
-  const toggleSelectMember = (id: string) => {
-      const newSet = new Set(selectedMemberIds);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      setSelectedMemberIds(newSet);
-  };
-
-  const toggleSelectAll = () => {
-      if (selectedMemberIds.size === members.length) {
-          setSelectedMemberIds(new Set());
-      } else {
-          setSelectedMemberIds(new Set(members.map(m => m.id)));
-      }
-  };
-
-  const handleBulkAction = async (action: string) => {
-      if (!window.confirm(`Are you sure you want to ${action} ${selectedMemberIds.size} members?`)) return;
-      
-      const ids = Array.from(selectedMemberIds);
-      let updates = {};
-      
-      if (action === 'block') updates = { status: Status.BLOCKED };
-      if (action === 'activate') updates = { status: Status.ACTIVE };
-      if (action === 'suspend') updates = { status: Status.SUSPENDED };
-      if (action === 'make_admin') updates = { role: Role.ADMIN };
-      
-      await api.bulkUpdateMembers(ids, updates);
-      setSelectedMemberIds(new Set());
-      loadData();
-      alert("Bulk action completed.");
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!editingMember || !e.target.files?.[0]) return;
-      
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-          const base64 = reader.result as string;
-          await api.updateMember(editingMember.id, { photoUrl: base64 });
-          // Refresh
-          const updated = { ...editingMember, photoUrl: base64 };
-          setEditingMember(updated);
-          setMembers(prev => prev.map(m => m.id === updated.id ? updated : m));
-          alert("Photo updated and synced.");
-      };
-      reader.readAsDataURL(file);
-  };
-
-  // --- FINANCE ACTIONS ---
-  const handleApproveWithdrawal = async (id: string) => {
-      await api.processWithdrawal(id, 'Approved');
-      loadWithdrawals();
-      alert("Withdrawal Approved");
-  };
-
-  // --- HARDWARE CONFIG ---
-
-  const downloadHardwareConfig = async () => {
-      const conf = await api.generateHardwareConfig();
-      const element = document.createElement("a");
-      const file = new Blob([JSON.stringify(conf, null, 2)], {type: 'application/json'});
-      element.href = URL.createObjectURL(file);
-      element.download = "onepass_device_config.json";
-      document.body.appendChild(element);
-      element.click();
-      alert("Config downloaded. Load this onto your hardware node.");
-  };
-
-  // --- VISITOR ---
-
-  const handleCreateVisitor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await api.createVisitor(visitorForm.name, visitorForm.host, visitorForm.purpose);
-    setShowNewVisitor(false);
-    setVisitorForm({ name: '', host: '', purpose: '' });
-    loadVisitors();
-  };
-  
-  const handleSync = async () => {
-      setSyncing(true);
-      try {
-          await api.updateConfig({ gasWebAppUrl: gasUrl, googleSheetsId: sheetId });
-          const res = await api.syncWithGoogleSheets();
-          if (res.success) {
-              alert(res.message);
-              await loadData();
-          } else {
-              alert("Sync Failed: " + res.message);
-          }
-      } catch (e) {
-          alert("Sync Error");
-      } finally {
-          setSyncing(false);
-      }
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto mt-20">
-        <div className="bg-slate-900 text-white p-8 rounded-xl shadow-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">ONEPASS <span className="text-brand-500">ADMIN</span></h1>
-            <p className="text-slate-400 mt-2">Platform Control Center</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" value={adminId} onChange={e => setAdminId(e.target.value)} className="w-full bg-slate-800 p-3 rounded text-white" placeholder="Admin ID" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-800 p-3 rounded text-white" placeholder="Password" />
-            {error && <div className="text-red-400 text-sm text-center">{error}</div>}
-            <button className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold p-4 rounded mt-4">AUTHENTICATE</button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // --- RENDER HELPERS ---
-  const totalWalletValue = members.reduce((sum, m) => sum + (m.walletBalance || 0), 0);
-  const totalOutstandingFines = members.reduce((sum, m) => sum + (m.outstandingFines || 0), 0);
+  const chartData = attendance.map(a => ({
+    day: new Date(a.timestamp).toLocaleDateString(undefined, { weekday: 'short' }),
+    val: a.status === 'NORMAL' ? 100 : 50
+  })).reverse();
 
   return (
-    <div className="flex flex-col md:flex-row min-h-[calc(100vh-100px)] gap-6 animate-fade-in relative">
-        
-      {/* Sidebar */}
-      <div className="w-full md:w-64 flex-shrink-0">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden sticky top-24">
-          <div className="p-6 bg-slate-900 text-white">
-            <h2 className="font-bold flex items-center"><Shield className="mr-2 text-brand-500"/> Platform</h2>
-            <p className="text-xs text-slate-400 mt-1">Multi-Tenant: ONEPASS</p>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl animate-scale-in flex flex-col">
+        <div className="bg-slate-900 p-8 text-white flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-6">
+            <img src={member.photoUrl} className="w-16 h-16 rounded-2xl border-2 border-slate-700 object-cover" />
+            <div>
+              <h3 className="text-2xl font-black tracking-tight">{member.name}</h3>
+              <p className="text-brand-400 font-black text-xs uppercase tracking-widest">{member.id} • {member.role}</p>
+            </div>
           </div>
-          <nav className="p-2 space-y-1">
-            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'overview' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <TrendingUp size={18} className="mr-3" /> Dashboard
-            </button>
-             <button onClick={() => setActiveTab('logs')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'logs' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <Activity size={18} className="mr-3" /> Access Logs
-            </button>
-            <button onClick={() => setActiveTab('members')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'members' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <Users size={18} className="mr-3" /> Members
-            </button>
-            <button onClick={() => { setActiveTab('finance'); loadWithdrawals(); }} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'finance' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <DollarSign size={18} className="mr-3" /> Wallet & Fines
-            </button>
-            <button onClick={() => setActiveTab('hardware')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'hardware' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <Server size={18} className="mr-3" /> Hardware
-            </button>
-            <button onClick={() => setActiveTab('integration')} className={`w-full flex items-center p-3 rounded-lg text-sm font-medium ${activeTab === 'integration' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <Cloud size={18} className="mr-3" /> Integration
-            </button>
-          </nav>
+          <button onClick={onClose} className="p-3 bg-slate-800 rounded-2xl hover:bg-slate-700 transition-colors">
+            <X size={24} />
+          </button>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 space-y-6">
-        
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-slate-900 text-white p-6 rounded-xl shadow-lg">
-                  <div className="text-slate-400 text-sm mb-1 uppercase tracking-wider">Total Members</div>
-                  <div className="text-3xl font-bold">{stats?.totalMembers}</div>
+        <div className="flex-1 overflow-y-auto p-8 space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Analytics Section */}
+            <div className="space-y-6">
+              <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                <BarChart3 size={16} /> Attendance Analytics
+              </h4>
+              <div className="h-48 w-full bg-slate-50 rounded-3xl p-4 border border-slate-100">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <Bar dataKey="val" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
+                    <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: 'transparent'}} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                  <div className="text-slate-500 text-sm mb-1 uppercase tracking-wider">Attendance Rate</div>
-                  <div className="text-3xl font-bold text-brand-600">{reports[0]?.attendanceRate.toFixed(1) || 0}%</div>
-              </div>
-               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                  <div className="text-slate-500 text-sm mb-1 uppercase tracking-wider">System Wallet</div>
-                  <div className="text-3xl font-bold text-green-600">₦{(totalWalletValue/1000).toFixed(1)}k</div>
-              </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                  <div className="text-slate-500 text-sm mb-1 uppercase tracking-wider">Pending Fines</div>
-                  <div className="text-3xl font-bold text-red-600">₦{(totalOutstandingFines/1000).toFixed(1)}k</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Session Progress</p>
+                  <p className="text-xl font-black text-slate-900">{member.sessionProgress}%</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Reward Points</p>
+                  <p className="text-xl font-black text-brand-600">{member.rewardPoints} PTS</p>
+                </div>
               </div>
             </div>
 
-            {/* Recent Activity Feed */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-               <h3 className="font-bold mb-4 text-slate-800 flex items-center"><Activity className="mr-2" size={20} /> Live Activity Feed</h3>
-               {logs.length === 0 ? (
-                 <p className="text-slate-500 italic">No recent logs.</p>
-               ) : (
-                 <div className="space-y-3">
-                   {logs.slice(0, 5).map(log => (
-                     <div key={log.id} className="flex items-center justify-between text-sm p-2 hover:bg-slate-50 rounded">
-                       <div className="flex items-center">
-                          <span className={`w-2 h-2 rounded-full mr-3 ${log.status === 'GRANTED' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                          <span className="font-mono text-slate-500 mr-2">{log.memberId}</span>
-                          <span className="font-medium text-slate-700">{log.action}</span>
-                       </div>
-                       <span className="text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                     </div>
-                   ))}
-                 </div>
-               )}
+            {/* Timeline & Actions Section */}
+            <div className="space-y-6">
+              <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                <Clock size={16} /> Recent Timeline
+              </h4>
+              <div className="space-y-3">
+                {attendance.slice(0, 4).map((a, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${a.status === 'NORMAL' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <p className="text-sm font-bold text-slate-700">{a.type === 'IN' ? 'Check-In' : 'Check-Out'}</p>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase">
+                      {new Date(a.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">QR Code URL (Link Upload)</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Paste QR Image Link..." 
+                      value={qrLink}
+                      onChange={e => setQrLink(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-sm outline-none focus:border-brand-500 transition-all"
+                    />
+                  </div>
+                  <button 
+                    onClick={handleUpdateQr}
+                    disabled={isUpdatingQr}
+                    className="p-3 bg-slate-900 text-white rounded-xl hover:bg-brand-600 transition-all"
+                  >
+                    {isUpdatingQr ? <RefreshCw className="animate-spin" size={20} /> : <Check size={20} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+             <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                <Layers size={16} /> Journey Milestones
+             </h4>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {journey.map(j => (
+                  <div key={j.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-xl ${j.status === 'Approved' ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-400'}`}>
+                        <Check size={16} />
+                      </div>
+                      <p className="font-bold text-slate-800 text-sm">{j.title}</p>
+                    </div>
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${j.status === 'Approved' ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-400'}`}>
+                      {j.status}
+                    </span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function AdminDashboard({ user, setUser }: { user: any; setUser: any }) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'hardware' | 'sync' | 'guide'>('overview');
+  const [members, setMembers] = useState<Member[]>([]);
+  const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    const m = await api.getAllMembers();
+    setMembers(m);
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    const res = await api.syncData();
+    if (res.conflicts) setConflicts(res.conflicts);
+    else loadData();
+    setSyncing(false);
+  };
+
+  const handleRoleChange = async (memberId: string, newRole: Role) => {
+    const success = await api.updateMemberRole(memberId, newRole);
+    if (success) {
+      loadData();
+      setEditingRoleId(null);
+    }
+  };
+
+  const exportCsv = () => {
+    const headers = ['ID', 'Name', 'Role', 'Status', 'Wallet Balance', 'Outstanding Fines', 'Reward Points'];
+    const rows = members.map(m => [
+      m.id,
+      m.name,
+      m.role,
+      m.status,
+      m.walletBalance,
+      m.outstandingFines,
+      m.rewardPoints
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Vanguard_Members_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const data = [
+    { name: 'Week 1', attendance: 85, punctuality: 92 },
+    { name: 'Week 2', attendance: 88, punctuality: 89 },
+    { name: 'Week 3', attendance: 92, punctuality: 95 },
+    { name: 'Week 4', attendance: 90, punctuality: 91 },
+  ];
+
+  const filteredMembers = members.filter(m => 
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    m.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-8 animate-fade-in relative">
+      {selectedMember && (
+        <MemberDetailModal 
+          member={selectedMember} 
+          onClose={() => setSelectedMember(null)} 
+          onUpdate={loadData}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <aside className="w-full lg:w-72 space-y-3 shrink-0">
+        <div className="bg-slate-900 text-white p-6 rounded-[2rem] mb-6 shadow-2xl relative overflow-hidden">
+          <div className="relative z-10">
+            <h2 className="text-2xl font-black tracking-tighter uppercase flex items-center gap-2">
+              <Shield className="text-brand-400" /> Console
+            </h2>
+            <p className="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-widest">CACENTRE Operational Core</p>
+          </div>
+          <div className="absolute top-0 right-0 p-4 opacity-10"><Settings size={80}/></div>
+        </div>
+
+        {[
+          { id: 'overview', icon: LayoutDashboard, label: 'Hub Intelligence' },
+          { id: 'members', icon: Users, label: 'Identity Core' },
+          { id: 'hardware', icon: Cpu, label: 'Mesh Nodes' },
+          { id: 'sync', icon: RefreshCw, label: 'Sheet Polling' },
+          { id: 'guide', icon: BookOpen, label: 'Admin Guide' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`w-full flex items-center p-5 rounded-2xl font-bold transition-all ${activeTab === tab.id ? 'bg-brand-600 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-100'}`}
+          >
+            <tab.icon className="mr-4" size={20} /> {tab.label}
+          </button>
+        ))}
+
+        <div className="pt-6 border-t border-slate-100">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-3">Sync Protocol</p>
+           <button onClick={handleSync} disabled={syncing} className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-600 transition-all flex items-center justify-center gap-3 shadow-xl">
+             {syncing ? <RefreshCw className="animate-spin" /> : <Cloud />} Run Polling
+           </button>
+           <p className="text-[8px] text-slate-300 mt-2 px-4 italic leading-tight">Apps Script integration is optional. Local data remains persistent.</p>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 space-y-6">
+        {activeTab === 'overview' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Hub Resilience</p>
+                <h4 className="text-4xl font-black text-slate-900">94.2%</h4>
+                <div className="mt-4 flex items-center gap-2 text-green-500 font-bold text-xs">
+                  <TrendingUp size={14} /> +2.1% from last session
+                </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Device Network</p>
+                <h4 className="text-4xl font-black text-slate-900">8/8</h4>
+                <div className="mt-4 flex items-center gap-2 text-blue-500 font-bold text-xs uppercase tracking-widest">All Nodes Online</div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pending Fines</p>
+                <h4 className="text-4xl font-black text-red-600">₦245k</h4>
+                <div className="mt-4 flex items-center gap-2 text-red-400 font-bold text-xs uppercase tracking-widest">12 Auto-Locks imminent</div>
+              </div>
+            </div>
+
+            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+              <div className="flex justify-between items-center mb-10">
+                <h3 className="text-xl font-black tracking-tighter uppercase flex items-center gap-3">
+                  <BarChart3 className="text-brand-600" /> Attendance Matrix (Toni Session)
+                </h3>
+              </div>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data}>
+                    <defs>
+                      <linearGradient id="colorAttendance" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
+                    <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                    <Area type="monotone" dataKey="attendance" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorAttendance)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'members' && (
+          <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden animate-slide-up">
+            <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="relative flex-1 w-full">
+                <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input 
+                  type="text" 
+                  placeholder="Search Identity Core..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold text-slate-800 focus:border-brand-500 transition-all" 
+                />
+              </div>
+              <button 
+                onClick={exportCsv}
+                className="p-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-200 transition-all whitespace-nowrap"
+              >
+                <FileDown size={18} /> Export CSV
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                  <tr>
+                    <th className="p-6">Member Identity</th>
+                    <th className="p-6">Role</th>
+                    <th className="p-6">Status</th>
+                    <th className="p-6 text-right">Wallet</th>
+                    <th className="p-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-bold">
+                  {filteredMembers.map(m => (
+                    <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="p-6">
+                        <div className="flex items-center gap-4">
+                          <img src={m.photoUrl} className="w-10 h-10 rounded-xl object-cover" />
+                          <div>
+                            <button 
+                              onClick={() => setSelectedMember(m)}
+                              className="text-slate-900 text-sm hover:text-brand-600 transition-colors underline decoration-slate-200 hover:decoration-brand-300"
+                            >
+                              {m.name}
+                            </button>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{m.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        {editingRoleId === m.id ? (
+                          <select 
+                            autoFocus
+                            className="p-2 bg-white border border-brand-200 rounded-lg text-xs font-black outline-none"
+                            defaultValue={m.role}
+                            onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}
+                            onBlur={() => setEditingRoleId(null)}
+                          >
+                            {Object.values(Role).map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        ) : (
+                          <button 
+                            onClick={() => setEditingRoleId(m.id)}
+                            className="flex items-center gap-2 hover:text-brand-600 transition-all text-xs text-slate-600"
+                          >
+                            {m.role} <Edit2 size={12} className="opacity-0 group-hover:opacity-100" />
+                          </button>
+                        )}
+                      </td>
+                      <td className="p-6">
+                        <span className={`px-2 py-1 rounded-full text-[9px] uppercase tracking-widest ${m.status === Status.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {m.status}
+                        </span>
+                      </td>
+                      <td className="p-6 text-right text-sm">₦{m.walletBalance.toLocaleString()}</td>
+                      <td className="p-6 text-right">
+                         <button 
+                           onClick={() => setSelectedMember(m)}
+                           className="p-2 bg-slate-100 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-all"
+                         >
+                           <ExternalLink size={16} />
+                         </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredMembers.length === 0 && (
+                <div className="p-20 text-center text-slate-300 font-black uppercase tracking-widest text-sm">
+                  No Identities Match Your Search
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {activeTab === 'hardware' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-                <Server size={64} className="mx-auto text-slate-300 mb-4" />
-                <h3 className="text-2xl font-bold text-slate-800">Hardware Integration</h3>
-                <p className="text-slate-500 max-w-md mx-auto mt-2 mb-8">
-                    Generate configuration packages for your Raspberry Pi or ESP32 access nodes.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto text-left">
-                    <div className="border border-slate-200 rounded-lg p-6 hover:shadow-md transition">
-                         <h4 className="font-bold flex items-center mb-2"><Download className="mr-2 text-brand-600"/> Device Config</h4>
-                         <p className="text-sm text-slate-500 mb-4">Includes API endpoints, Org ID, and sync intervals.</p>
-                         <button onClick={downloadHardwareConfig} className="w-full bg-slate-900 text-white py-2 rounded font-bold hover:bg-slate-800">Download .JSON</button>
+          <div className="space-y-6 animate-slide-up">
+            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex justify-between items-center">
+              <div>
+                <h3 className="text-3xl font-black tracking-tighter uppercase">Mesh Provisioner</h3>
+                <p className="text-slate-400 text-sm font-medium mt-1">Generate encrypted configuration for Vanguard Node Hardware.</p>
+              </div>
+              <button onClick={() => {
+                const { downloadUrl } = api.generateHardwarePackage('ORG_001', 'NODE_99');
+                const a = document.createElement('a'); a.href = downloadUrl; a.download = 'config.json'; a.click();
+              }} className="p-5 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-brand-600 shadow-xl transition-all flex items-center gap-2">
+                <Download size={20} /> Download Master Package
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map(n => (
+                <div key={n} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-green-100 text-green-600 p-4 rounded-2xl">
+                      <Wifi size={24} />
                     </div>
-                    <div className="border border-slate-200 rounded-lg p-6 hover:shadow-md transition">
-                         <h4 className="font-bold flex items-center mb-2"><CheckCircle className="mr-2 text-green-600"/> Connected Devices</h4>
-                         <ul className="text-sm space-y-2 mt-2">
-                             <li className="flex justify-between"><span>Main Gate</span> <span className="text-green-600 font-mono text-xs">ONLINE</span></li>
-                             <li className="flex justify-between"><span>Reception Kiosk</span> <span className="text-green-600 font-mono text-xs">ONLINE</span></li>
-                             <li className="flex justify-between"><span>Back Door</span> <span className="text-red-400 font-mono text-xs">OFFLINE</span></li>
-                         </ul>
+                    <div>
+                      <p className="font-black text-slate-900">Lobby Portal Alpha-{n}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">SEC_KEY: VNG_NODE_ENCRYPTED</p>
                     </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="px-2 py-1 bg-green-50 text-green-600 text-[8px] font-black rounded-full uppercase">Online</span>
+                    <p className="text-[8px] text-slate-400 mt-1 uppercase">Ping: 14ms</p>
+                  </div>
                 </div>
+              ))}
             </div>
+          </div>
         )}
 
-        {activeTab === 'members' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative">
-                 <h3 className="font-bold mb-4">Member Management</h3>
-                 
-                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <input 
-                      type="text" 
-                      placeholder="Search by ID or Name..." 
-                      className="p-2 border rounded w-full max-w-sm" 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    
-                    {/* BULK ACTIONS TOOLBAR */}
-                    {selectedMemberIds.size > 0 && (
-                        <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg animate-fade-in shadow-lg">
-                            <span className="text-xs font-bold mr-2">{selectedMemberIds.size} Selected</span>
-                            <button onClick={() => handleBulkAction('activate')} className="p-1 hover:bg-slate-700 rounded" title="Activate"><CheckCircle size={16}/></button>
-                            <button onClick={() => handleBulkAction('block')} className="p-1 hover:bg-slate-700 rounded" title="Block"><XCircle size={16}/></button>
-                            <button onClick={() => handleBulkAction('suspend')} className="p-1 hover:bg-slate-700 rounded" title="Suspend"><AlertTriangle size={16}/></button>
-                        </div>
-                    )}
-                 </div>
-
-                 {/* MEMBER TABLE */}
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-500">
-                            <tr>
-                                <th className="p-3 w-8">
-                                    <input type="checkbox" checked={selectedMemberIds.size === members.length && members.length > 0} onChange={toggleSelectAll} />
-                                </th>
-                                <th className="p-3">ID</th>
-                                <th className="p-3">Name</th>
-                                <th className="p-3">Role</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3">Wallet</th>
-                                <th className="p-3">Points</th>
-                                <th className="p-3">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {members.filter(m => 
-                              m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              m.id.toLowerCase().includes(searchTerm.toLowerCase())
-                            ).map(m => (
-                                <tr key={m.id} className={selectedMemberIds.has(m.id) ? 'bg-blue-50' : ''}>
-                                    <td className="p-3">
-                                        <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => toggleSelectMember(m.id)} />
-                                    </td>
-                                    <td className="p-3 font-mono">{m.id}</td>
-                                    <td className="p-3 font-medium flex items-center">
-                                        <img src={m.photoUrl || 'https://via.placeholder.com/30'} className="w-6 h-6 rounded-full mr-2 object-cover"/>
-                                        {m.name}
-                                    </td>
-                                    <td className="p-3">{m.role}</td>
-                                    <td className="p-3">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                            m.status === Status.ACTIVE ? 'bg-green-100 text-green-700' : 
-                                            m.status === Status.LATE ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
-                                        }`}>
-                                            {m.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-3 font-mono">₦{m.walletBalance.toLocaleString()}</td>
-                                    <td className="p-3 text-brand-600 font-bold">{m.rewardPoints}</td>
-                                    <td className="p-3">
-                                        <button onClick={() => setEditingMember(m)} className="text-brand-600 hover:underline">Edit</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                 </div>
-
-                 {/* EDIT MEMBER MODAL (PHOTO UPLOAD) */}
-                 {editingMember && (
-                     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                         <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                             <h3 className="font-bold text-lg mb-4">Edit Member: {editingMember.name}</h3>
-                             <div className="flex flex-col items-center mb-6">
-                                 <img src={editingMember.photoUrl || 'https://via.placeholder.com/100'} className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-slate-200" />
-                                 <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-bold flex items-center">
-                                     <Upload size={16} className="mr-2"/> Upload Photo
-                                     <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-                                 </label>
-                                 <p className="text-xs text-slate-400 mt-2">Auto-syncs to Database</p>
-                             </div>
-                             <div className="flex justify-end">
-                                 <button onClick={() => setEditingMember(null)} className="px-4 py-2 bg-slate-200 rounded-lg font-bold mr-2">Close</button>
-                             </div>
-                         </div>
-                     </div>
-                 )}
+        {activeTab === 'sync' && (
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm animate-slide-up space-y-8">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-6">
+              <h3 className="text-2xl font-black tracking-tighter">Conflict Resolution Hub</h3>
+              <div className="bg-brand-50 text-brand-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Review Required</div>
             </div>
+
+            {conflicts.length > 0 ? (
+              <div className="space-y-4">
+                {conflicts.map(c => (
+                  <div key={c.memberId} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                      <h4 className="font-black text-slate-900">{c.name}</h4>
+                      <p className="text-[10px] text-slate-400 uppercase font-black">{c.field} Mismatch</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <button onClick={() => api.resolveSync(c.memberId, 'local', c.localValue)} className="p-4 bg-slate-900 text-white rounded-xl text-xs font-black shadow-lg">Local Hub (₦{c.localValue})</button>
+                      <button onClick={() => api.resolveSync(c.memberId, 'sheet', c.sheetValue)} className="p-4 bg-white border border-slate-200 text-brand-600 rounded-xl text-xs font-black shadow-sm">Google Sheets (₦{c.sheetValue})</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 text-slate-300">
+                <ShieldCheck size={64} className="mx-auto mb-4 opacity-20" />
+                <p className="font-black text-sm uppercase tracking-widest">Hub Database Synchronized</p>
+              </div>
+            )}
+          </div>
         )}
 
-        {activeTab === 'logs' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                 <h3 className="font-bold mb-4">Access Logs</h3>
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-500">
-                            <tr>
-                                <th className="p-3">Time</th>
-                                <th className="p-3">Member ID</th>
-                                <th className="p-3">Action</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {logs.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-slate-400">No logs available</td></tr>}
-                            {logs.map((log) => (
-                                <tr key={log.id}>
-                                    <td className="p-3">{new Date(log.timestamp).toLocaleString()}</td>
-                                    <td className="p-3 font-mono">{log.memberId}</td>
-                                    <td className="p-3">{log.action}</td>
-                                    <td className="p-3">
-                                       <span className={`px-2 py-1 rounded text-xs font-bold ${log.status === 'GRANTED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                          {log.status}
-                                       </span>
-                                    </td>
-                                    <td className="p-3 text-slate-500">{log.notes || '-'}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                 </div>
+        {activeTab === 'guide' && (
+          <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-sm animate-slide-up space-y-10 max-w-4xl">
+            <div className="space-y-4">
+              <h3 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                <BookOpen className="text-brand-600" /> Administrative Protocol Guide
+              </h3>
+              <p className="text-slate-500 font-medium leading-relaxed">
+                Welcome to the Vanguard OnePass Core. This system manages identity, access, and finance through a high-resilience local hub.
+              </p>
             </div>
-        )}
 
-        {activeTab === 'finance' && (
-            <div className="space-y-6">
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 className="font-bold mb-4">Pending Withdrawals</h3>
-                    {withdrawals.length === 0 ? (
-                        <p className="text-slate-500 italic">No pending requests.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {withdrawals.map(w => (
-                                <div key={w.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg">
-                                    <div>
-                                        <p className="font-bold text-slate-800">{w.memberName} ({w.memberId})</p>
-                                        <p className="text-sm text-slate-500">Requested: {new Date(w.timestamp).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold text-lg">₦{w.amount.toLocaleString()}</span>
-                                        <button 
-                                          onClick={() => handleApproveWithdrawal(w.id)}
-                                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                        >
-                                            Approve
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Management</h4>
+                <ul className="space-y-4 text-sm font-bold text-slate-700">
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Member Insights:</span> Click any member's name to view their full attendance timeline and journey progress.</p>
+                  </li>
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Role Modification:</span> Hover over the 'Role' column in the member list to quickly toggle between Member, Staff, and Admin.</p>
+                  </li>
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">QR Provisioning:</span> Admins can link custom QR codes per member by pasting an image link in the member detail panel.</p>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Sync & Automation</h4>
+                <ul className="space-y-4 text-sm font-bold text-slate-700">
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Optional Cloud:</span> Google Apps Script integration is purely for external synchronization. The system works 100% offline using local persistence.</p>
+                  </li>
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Conflict Hub:</span> If a mismatch occurs during polling, the Hub will ask you to verify which data source is authoritative.</p>
+                  </li>
+                  <li className="flex gap-3">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0" />
+                    <p><span className="text-slate-900">Data Portability:</span> Use the CSV Export tool to back up your identity core at any time for spreadsheet analysis.</p>
+                  </li>
+                </ul>
+              </div>
             </div>
-        )}
 
-        {activeTab === 'integration' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 className="font-bold mb-4">Google Integration</h3>
-                <div className="space-y-4 max-w-md">
-                    <input type="text" value={sheetId} onChange={e => setSheetId(e.target.value)} className="w-full p-2 border rounded" placeholder="Google Sheet ID" />
-                    <input type="text" value={gasUrl} onChange={e => setGasUrl(e.target.value)} className="w-full p-2 border rounded" placeholder="Web App URL" />
-                    <button onClick={handleSync} className="w-full bg-brand-600 text-white p-2 rounded font-bold flex justify-center items-center">
-                         <RefreshCw className={`mr-2 ${syncing ? 'animate-spin' : ''}`} size={16} /> Sync
-                    </button>
-                </div>
+            <div className="p-8 bg-slate-950 rounded-[2.5rem] text-white space-y-4">
+               <h4 className="text-xs font-black text-brand-400 uppercase tracking-[0.2em]">Security Protocol</h4>
+               <p className="text-sm font-medium opacity-80 leading-relaxed">
+                 Always ensure your "Master Protocol" credentials remain secure. The Admin Console allows for financial adjustments and access level elevation which bypasses standard member journey gates.
+               </p>
             </div>
+          </div>
         )}
-
-      </div>
+      </main>
     </div>
   );
 }
