@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Person holding a trophy / star (Testimonials) -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Body -->
+  <path d="M150 220 L250 220 L266 380 L134 380 Z" fill="#0A0A0A"/>
+
+  <!-- Head with afro puffs (two) -->
+  <g>
+    <circle cx="172" cy="116" r="22" fill="#0A0A0A"/>
+    <circle cx="228" cy="116" r="22" fill="#0A0A0A"/>
+  </g>
+  <ellipse cx="200" cy="160" rx="38" ry="40" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+  <path d="M162 154 Q162 132 200 132 Q238 132 238 154 L236 142 Q218 138 200 138 Q182 138 164 142 Z" fill="#0A0A0A"/>
+  <!-- Eyes (closed, smiling) -->
+  <path d="M180 168 Q188 162 196 168" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M204 168 Q212 162 220 168" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Big smile -->
+  <path d="M184 184 Q200 196 216 184" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Right arm raised up holding trophy -->
+  <path d="M250 224 Q280 180 280 130" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <!-- Left arm down -->
+  <path d="M150 226 Q132 270 144 320" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="144" cy="322" r="9" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+
+  <!-- Trophy (held aloft) -->
+  <g transform="translate(280 60)">
+    <!-- Star shape -->
+    <path d="M30 0 L37 22 L60 22 L42 36 L48 58 L30 44 L12 58 L18 36 L0 22 L23 22 Z" fill="#C0392B" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Tail/ribbon -->
+    <path d="M22 56 L22 84" stroke="#0A0A0A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M38 56 L38 84" stroke="#0A0A0A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22 84 Q30 90 38 84" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Sparkles -->
+  <g fill="#C0392B">
+    <path d="M70 100 L74 108 L82 112 L74 116 L70 124 L66 116 L58 112 L66 108 Z"/>
+    <path d="M340 200 L342 206 L348 208 L342 210 L340 216 L338 210 L332 208 L338 206 Z"/>
+    <path d="M90 240 L92 246 L98 248 L92 250 L90 256 L88 250 L82 248 L88 246 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Two figures holding signs, Musixmatch-style -->
+  <!-- Background subtle ground line -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Left figure (with bun hair) -->
+  <g>
+    <!-- Hair bun -->
+    <circle cx="118" cy="100" r="14" fill="#0A0A0A"/>
+    <!-- Head -->
+    <circle cx="120" cy="130" r="34" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+    <!-- Eye -->
+    <circle cx="132" cy="128" r="3" fill="#0A0A0A"/>
+    <!-- Body -->
+    <path d="M82 168 L158 168 L172 320 L68 320 Z" fill="#0A0A0A"/>
+    <!-- Left arm holding crimson sign -->
+    <path d="M82 175 Q60 200 70 235" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+    <!-- Right arm extending to sign -->
+    <path d="M158 175 Q200 195 215 215" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+    <!-- Hand left (small circle) -->
+    <circle cx="70" cy="238" r="9" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+    <!-- Legs -->
+    <rect x="82"  y="320" width="32" height="60" fill="#0A0A0A"/>
+    <rect x="128" y="320" width="32" height="60" fill="#0A0A0A"/>
+    <!-- Shoes -->
+    <rect x="78"  y="375" width="40" height="8" rx="3" fill="#0A0A0A"/>
+    <rect x="124" y="375" width="40" height="8" rx="3" fill="#0A0A0A"/>
+  </g>
+
+  <!-- Crimson sign held between the two figures -->
+  <g transform="rotate(-6 220 220)">
+    <rect x="160" y="195" width="120" height="50" rx="6" fill="#C0392B"/>
+    <!-- Hand-drawn squiggle text suggestion -->
+    <line x1="172" y1="218" x2="262" y2="218" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+    <line x1="178" y1="228" x2="248" y2="228" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  </g>
+  <!-- Tape pieces on sign corners -->
+  <rect x="158" y="190" width="20" height="8" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="1.5" transform="rotate(-12 168 194)"/>
+  <rect x="262" y="190" width="20" height="8" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="1.5" transform="rotate(12 272 194)"/>
+
+  <!-- Right figure (short hair) -->
+  <g>
+    <!-- Head with hair shape -->
+    <path d="M260 110 Q260 90 290 88 Q320 90 320 112 L320 130 L260 130 Z" fill="#0A0A0A"/>
+    <circle cx="290" cy="135" r="34" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+    <!-- Eye -->
+    <circle cx="278" cy="133" r="3" fill="#0A0A0A"/>
+    <!-- Body -->
+    <path d="M252 173 L328 173 L342 320 L238 320 Z" fill="#0A0A0A"/>
+    <!-- Left arm to sign -->
+    <path d="M252 180 Q220 195 215 215" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+    <!-- Right arm down -->
+    <path d="M328 180 Q345 220 338 260" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="338" cy="262" r="9" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+    <!-- Legs -->
+    <rect x="252" y="320" width="32" height="60" fill="#0A0A0A"/>
+    <rect x="298" y="320" width="32" height="60" fill="#0A0A0A"/>
+    <rect x="248" y="375" width="40" height="8" rx="3" fill="#0A0A0A"/>
+    <rect x="294" y="375" width="40" height="8" rx="3" fill="#0A0A0A"/>
+  </g>
+</svg>

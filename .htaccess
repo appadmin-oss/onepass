@@ -1,0 +1,112 @@
+# Afrostrength — Apache config for shared hosting (cPanel)
+# Front-controller routing, gzip, cache headers, security.
+
+# Some shared hosts don't grant Options override; wrapping in <IfModule>
+# avoids a 500 on those when the directives would otherwise be rejected.
+<IfModule mod_autoindex.c>
+  Options -Indexes
+</IfModule>
+<IfModule mod_negotiation.c>
+  # MultiViews would let Apache match /about → /about.php on its own,
+  # which fights the front controller. Off, always.
+  Options -MultiViews
+</IfModule>
+ServerSignature Off
+
+# Force HTTPS (uncomment in production once SSL is active)
+# RewriteEngine On
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# -----------------------------------------------------------------------
+# FRONT CONTROLLER — two layers, in order of preference.
+#
+# Layer 1 (preferred): FallbackResource. Apache 2.3.9+ / mod_dir.
+#   When a request maps to a missing file/dir, Apache internally
+#   serves /index.php with the ORIGINAL REQUEST_URI preserved. No
+#   rewrite needed. Survives `AllowOverride FileInfo` minimal hosts.
+#
+# Layer 2 (fallback): mod_rewrite. Older Apache or hosts without
+#   mod_dir. Same effect via RewriteRule.
+#
+# Either layer alone is enough. Both is defence-in-depth: if a host
+# disables one we still route correctly.
+# -----------------------------------------------------------------------
+<IfModule mod_dir.c>
+  FallbackResource /index.php
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Allow real files / directories (assets) to pass through
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Block direct access to source folders
+  RewriteRule ^(src|config|database|vendor|storage|scripts)(/|$) - [F,L]
+
+  # Everything else → index.php (keeps original REQUEST_URI)
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Default document
+DirectoryIndex index.php
+
+# Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+  AddOutputFilterByType DEFLATE application/javascript application/json application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml font/woff font/woff2
+</IfModule>
+
+# Long cache for hashed assets, short for HTML
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                "access plus 30 days"
+  ExpiresByType application/javascript  "access plus 30 days"
+  ExpiresByType image/jpeg              "access plus 60 days"
+  ExpiresByType image/png               "access plus 60 days"
+  ExpiresByType image/webp              "access plus 60 days"
+  ExpiresByType image/svg+xml           "access plus 60 days"
+  ExpiresByType font/woff               "access plus 180 days"
+  ExpiresByType font/woff2              "access plus 180 days"
+  ExpiresByType text/html               "access plus 0 seconds"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "geolocation=(), camera=(), microphone=()"
+
+  # Explicit cache controls — defence-in-depth in case mod_expires isn't
+  # loaded by the host. HTML must never be cached by intermediaries
+  # (login state, CSRF tokens). Static assets cache aggressively and
+  # rely on the ?v= cache-buster in asset_v() for invalidation.
+  <FilesMatch "\.(html|php)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
+  <FilesMatch "\.(css|js|woff2|woff|svg|png|jpg|jpeg|webp|gif|ico)$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# Block access to dotfiles
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# Block access to .md, .sql, .log
+<FilesMatch "\.(md|sql|log|env|ini)$">
+  Require all denied
+</FilesMatch>
+
+# We deliberately do NOT use `ErrorDocument 404 /index.php?_err=404`.
+# That pattern masks the difference between "a real page was missing"
+# and "the rewrite layer is broken and EVERY page 404s" — which is
+# exactly the production symptom the router was being blamed for.
+# Letting Apache's default 404 surface when both FallbackResource AND
+# mod_rewrite are absent makes the misconfiguration fail loudly.

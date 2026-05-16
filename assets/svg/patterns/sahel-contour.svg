@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Contour-line pattern">
+  <!-- Topographic contour lines, asymmetric. The motif is "looking down
+       on the Sahel" — landscape rendered as concentric, slightly
+       eccentric isobars. Tile is 160×160; edges align so the rhythm
+       continues across repeats. Stroke uses currentColor so the host
+       element decides the tint; opacity is low by default so the
+       pattern reads as texture, not pictograph. -->
+  <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.16">
+    <!-- main system: concentric ellipses with deliberate eccentricity -->
+    <ellipse cx="60" cy="84" rx="68" ry="44" transform="rotate(-12 60 84)"/>
+    <ellipse cx="62" cy="86" rx="54" ry="34" transform="rotate(-10 62 86)"/>
+    <ellipse cx="64" cy="88" rx="40" ry="24" transform="rotate(-8 64 88)"/>
+    <ellipse cx="66" cy="90" rx="26" ry="14" transform="rotate(-6 66 90)"/>
+    <!-- second system: smaller satellite ring, off-axis -->
+    <ellipse cx="130" cy="40" rx="22" ry="14" transform="rotate(18 130 40)"/>
+    <ellipse cx="130" cy="40" rx="14" ry="8"  transform="rotate(18 130 40)"/>
+    <!-- horizontal hairline rule, the geologist's reference line -->
+    <line x1="0" y1="156" x2="160" y2="156"/>
+    <line x1="0" y1="158" x2="160" y2="158" stroke-dasharray="2 6"/>
+  </g>
+</svg>

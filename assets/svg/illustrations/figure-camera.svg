@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Person holding a camera (Projects / Media) -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Body -->
+  <path d="M148 220 L252 220 L268 380 L132 380 Z" fill="#0A0A0A"/>
+
+  <!-- Head with twist-out hair -->
+  <ellipse cx="200" cy="160" rx="40" ry="40" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+  <path d="M160 158 Q160 110 200 110 Q240 110 240 158 L236 134 Q220 124 200 124 Q180 124 164 134 Z" fill="#0A0A0A"/>
+  <!-- One eye visible (camera blocks the other) -->
+  <circle cx="188" cy="166" r="3" fill="#0A0A0A"/>
+  <!-- Smile -->
+  <path d="M188 184 Q200 190 212 184" fill="none" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Both arms holding camera up to face -->
+  <path d="M158 232 Q170 200 190 184" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <path d="M244 232 Q230 200 210 184" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Camera body -->
+  <g>
+    <rect x="180" y="148" width="60" height="44" rx="4" fill="#0A0A0A"/>
+    <!-- Top accent (shutter mound) -->
+    <rect x="220" y="142" width="14" height="6" fill="#0A0A0A"/>
+    <!-- Lens -->
+    <circle cx="210" cy="170" r="16" fill="#1A1A1A" stroke="#0A0A0A" stroke-width="2"/>
+    <circle cx="210" cy="170" r="10" fill="#C0392B"/>
+    <circle cx="206" cy="166" r="3" fill="#FCE7DD"/>
+    <!-- Shutter button (crimson) -->
+    <circle cx="232" cy="148" r="3" fill="#C0392B"/>
+  </g>
+
+  <!-- Flash burst -->
+  <g transform="translate(290 110)">
+    <path d="M0 20 L18 18 L10 6 L26 14 L24 -4 L36 8 L40 -14 L44 8 L56 -4 L52 14 L70 6 L62 18 L80 20 L62 24 L70 36 L52 28 L56 46 L44 32 L40 56 L36 32 L24 46 L26 28 L10 36 L18 22 Z" fill="#C0392B" opacity="0.65"/>
+  </g>
+
+  <!-- Polaroid floating below -->
+  <g transform="translate(56 280) rotate(-8)">
+    <rect x="0" y="0" width="60" height="72" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="2"/>
+    <rect x="6" y="6" width="48" height="44" fill="#C0392B"/>
+    <line x1="10" y1="60" x2="40" y2="60" stroke="#0A0A0A" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>

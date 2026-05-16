@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Person sitting at a laptop -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Chair / stool -->
+  <rect x="84" y="280" width="80" height="14" fill="#0A0A0A"/>
+  <line x1="100" y1="294" x2="100" y2="378" stroke="#0A0A0A" stroke-width="6" stroke-linecap="round"/>
+  <line x1="148" y1="294" x2="148" y2="378" stroke="#0A0A0A" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Body (seated, leaning forward) -->
+  <path d="M90 220 L162 220 L176 280 L84 280 Z" fill="#0A0A0A"/>
+
+  <!-- Legs (folded) -->
+  <path d="M88 280 L60 340 L120 340 Z" fill="#0A0A0A"/>
+
+  <!-- Head (afro shape) -->
+  <ellipse cx="128" cy="160" rx="42" ry="40" fill="#0A0A0A"/>
+  <ellipse cx="128" cy="172" rx="34" ry="32" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+  <!-- Hair top accent -->
+  <path d="M96 158 Q128 122 160 158" fill="#0A0A0A"/>
+  <!-- Eyes -->
+  <circle cx="118" cy="170" r="2.5" fill="#0A0A0A"/>
+  <circle cx="138" cy="170" r="2.5" fill="#0A0A0A"/>
+  <!-- Smile -->
+  <path d="M120 184 Q128 188 136 184" fill="none" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Arms reaching to laptop -->
+  <path d="M96 230 Q140 250 200 252" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <path d="M158 226 Q210 248 250 252" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Laptop -->
+  <g>
+    <!-- Lid (back plane) -->
+    <path d="M210 200 L320 200 L330 264 L200 264 Z" fill="#0A0A0A"/>
+    <!-- Screen -->
+    <path d="M218 208 L312 208 L320 258 L210 258 Z" fill="#FCE7DD"/>
+    <!-- Crimson glow line on screen — code rhythm -->
+    <line x1="226" y1="222" x2="282" y2="222" stroke="#C0392B" stroke-width="3" stroke-linecap="round"/>
+    <line x1="226" y1="232" x2="262" y2="232" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <line x1="226" y1="240" x2="296" y2="240" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <line x1="226" y1="248" x2="252" y2="248" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <!-- Base -->
+    <path d="M186 264 L342 264 L350 280 L178 280 Z" fill="#0A0A0A"/>
+    <line x1="240" y1="270" x2="290" y2="270" stroke="#FCE7DD" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Floating crimson dot, breathing accent -->
+  <circle cx="340" cy="120" r="14" fill="#C0392B"/>
+  <circle cx="60"  cy="100" r="6"  fill="#C0392B"/>
+</svg>
