@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Terracotta-brick pattern">
+  <!-- Irregular brick grid — abstracted from West African earthen
+       architecture (Djenne, Agadez, Gao). Brick widths intentionally
+       inconsistent so the eye reads "hand-laid" instead of "CSS grid".
+       Mortar lines are hairline rules in currentColor with low opacity;
+       no fills, so this layers cleanly on any host background. -->
+  <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.15">
+    <!-- horizontal courses -->
+    <line x1="0" y1="20"  x2="120" y2="20"/>
+    <line x1="0" y1="50"  x2="120" y2="50"/>
+    <line x1="0" y1="80"  x2="120" y2="80"/>
+    <line x1="0" y1="110" x2="120" y2="110"/>
+    <!-- course 1 vertical joints (offset) -->
+    <line x1="22" y1="0"  x2="22" y2="20"/>
+    <line x1="58" y1="0"  x2="58" y2="20"/>
+    <line x1="92" y1="0"  x2="92" y2="20"/>
+    <!-- course 2 vertical joints (different offset, the "wrong-tooth" pattern) -->
+    <line x1="14" y1="20" x2="14" y2="50"/>
+    <line x1="48" y1="20" x2="48" y2="50"/>
+    <line x1="80" y1="20" x2="80" y2="50"/>
+    <line x1="106" y1="20" x2="106" y2="50"/>
+    <!-- course 3 -->
+    <line x1="30" y1="50" x2="30" y2="80"/>
+    <line x1="64" y1="50" x2="64" y2="80"/>
+    <line x1="96" y1="50" x2="96" y2="80"/>
+    <!-- course 4 -->
+    <line x1="20" y1="80" x2="20" y2="110"/>
+    <line x1="52" y1="80" x2="52" y2="110"/>
+    <line x1="88" y1="80" x2="88" y2="110"/>
+    <line x1="112" y1="80" x2="112" y2="110"/>
+    <!-- top + bottom edge so the tile closes -->
+    <line x1="0" y1="0"   x2="120" y2="0"/>
+    <line x1="0" y1="120" x2="120" y2="120"/>
+  </g>
+  <!-- tiny "wood beam" markers (toron-style, Djenne), barely visible -->
+  <g fill="currentColor" opacity="0.18">
+    <rect x="36" y="33" width="6"  height="4"/>
+    <rect x="70" y="63" width="6"  height="4"/>
+    <rect x="40" y="93" width="6"  height="4"/>
+  </g>
+</svg>

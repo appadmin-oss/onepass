@@ -1,20 +1,58 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Afrostrength
 
-# Run and deploy your AI Studio app
+A production-ready, full-stack PHP/MySQL website for **Afrostrength** — the
+brand studio behind *Building Brands, Strengthening Legacies*. Built for shared
+cPanel hosting with no Node build step.
 
-This contains everything you need to run your app locally.
+- **Frontend** — semantic HTML5, Tailwind CDN, hand-rolled `assets/css/custom.css`
+  for the design tokens and components, vanilla JS for motion and forms,
+  SVG.js + GraphicsJS for the animated illustrations.
+- **Backend** — PHP 8.x front-controller MVC. PDO/MySQL. PHPMailer for SMTP.
+- **Academy** — `/academy/*` (and `academy.afrostrength.com`) serves the
+  Academy with a maroon-accented layout. Course catalog reads from
+  **Moodle** via its REST web services. Live sessions embed via
+  **Jitsi-as-a-Service** with server-minted RS256 JWTs.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1VckEbkjzpb1ojM_4U4E_fSUSceTCvHyp
+## Quick start (local)
 
-## Run Locally
+```sh
+git clone <repo> afrostrength && cd afrostrength
+mysql -u root -p afrostrength < database/schema.sql
+mysql -u root -p afrostrength < database/seed.sql
+php scripts/create-admin.php admin <password>
+php -S localhost:8000 index.php
+open http://localhost:8000
+```
 
-**Prerequisites:**  Node.js
+`AFS_DEBUG=1` in your shell env enables verbose error pages.
 
+## Deploying
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+See [`DEPLOYMENT.md`](./DEPLOYMENT.md) — covers cPanel upload, DB import,
+SMTP setup via PHPMailer, Moodle LMS integration, and JaaS configuration.
+
+## Routes
+
+- Public: `/`, `/services`, `/services/{slug}`, `/projects`, `/projects/{slug}`,
+  `/blog`, `/blog/{slug}`, `/contact`, `/about/{section}`, `/faq`,
+  `/testimonials`
+- Academy: `/academy`, `/academy/courses`, `/academy/courses/{slug}`,
+  `/academy/instructors`, `/academy/certifications`, `/academy/live-sessions`,
+  `/academy/enroll`
+- Admin: `/admin`, `/admin/posts`, `/admin/projects`, `/admin/services`,
+  `/admin/inquiries`, `/admin/academy/{section}`, `/admin/content`
+- API: `POST /api/inquiries`, `POST /api/enrollments`
+- SEO: `/sitemap.xml`, `/robots.txt`
+
+## Tech notes
+
+- The visual system is anchored in `assets/css/custom.css` — all design
+  tokens, components, and motion live there.
+- Models gracefully fall back to seeded data when MySQL is unreachable,
+  so the public site renders before the database is wired.
+- The Mailer soft-fails to `storage/mail.log` if PHPMailer isn't vendored
+  yet — useful while configuring SMTP.
+- The Academy's Course model prefers Moodle data when `LMS_ENABLED=1`,
+  otherwise falls through to the local seed.
+- All forms POST to JSON endpoints with CSRF tokens minted from the PHP
+  session and exposed via a `<meta name="csrf-token">` tag.

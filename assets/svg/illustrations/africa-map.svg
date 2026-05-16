@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" aria-hidden="true" fill="none">
+  <!-- Stylised Africa silhouette — a single closed path approximating the continent.
+       Not cartographically precise; reads at glance as Africa. -->
+  <path d="M120 18
+           C 145 18  165 28  170 50
+           C 174 68  168 80  176 96
+           C 184 110 198 116 200 134
+           C 202 148 192 158 188 172
+           C 184 184 188 198 184 210
+           C 178 226 158 232 138 242
+           C 118 254 110 268 96 264
+           C 84 260  78 244  72 230
+           C 64 212  56 198  46 182
+           C 38 168  30 152  34 134
+           C 38 118  48 106  56 92
+           C 60 82   58 70   64 58
+           C 70 44   86 32  100 26
+           C 108 22 114 18  120 18 Z"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(252,183,171,0.35)"
+        stroke-width="1.2"
+        stroke-linejoin="round"/>
+
+  <!-- Madagascar — a small detached blob -->
+  <path d="M198 192 q 6 14 -2 28 q -8 10 -10 -2 q -2 -14 12 -26 Z"
+        fill="rgba(255,255,255,0.04)"
+        stroke="rgba(252,183,171,0.28)"
+        stroke-width="1"/>
+
+  <!-- City pins (Lagos · Nairobi · Accra). Pulse animation in CSS. -->
+  <g class="map-pin" data-city="Lagos">
+    <circle cx="78" cy="148" r="6"  fill="#C0392B"/>
+    <circle cx="78" cy="148" r="12" fill="none" stroke="#C0392B" stroke-width="1" opacity="0.6"/>
+  </g>
+  <g class="map-pin" data-city="Accra">
+    <circle cx="58" cy="144" r="5"  fill="#FCB7AB"/>
+    <circle cx="58" cy="144" r="10" fill="none" stroke="#FCB7AB" stroke-width="1" opacity="0.6"/>
+  </g>
+  <g class="map-pin" data-city="Nairobi">
+    <circle cx="156" cy="178" r="6"  fill="#C0392B"/>
+    <circle cx="156" cy="178" r="12" fill="none" stroke="#C0392B" stroke-width="1" opacity="0.6"/>
+  </g>
+</svg>

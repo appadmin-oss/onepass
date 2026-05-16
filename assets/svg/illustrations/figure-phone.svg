@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Person on a phone, mid-conversation -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Body -->
+  <path d="M150 200 L256 200 L274 380 L132 380 Z" fill="#0A0A0A"/>
+
+  <!-- Head with side-parted hair -->
+  <ellipse cx="200" cy="142" rx="44" ry="44" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+  <path d="M156 134 Q160 96 200 96 Q244 96 248 138 L246 122 Q224 116 200 118 Q176 122 158 130 Z" fill="#0A0A0A"/>
+  <!-- Eyes -->
+  <circle cx="186" cy="146" r="3" fill="#0A0A0A"/>
+  <circle cx="214" cy="146" r="3" fill="#0A0A0A"/>
+  <!-- Smile -->
+  <path d="M188 162 Q200 168 212 162" fill="none" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Right arm holding phone up to ear -->
+  <path d="M256 210 Q284 196 280 158" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <!-- Phone (crimson) -->
+  <g transform="rotate(-22 280 142)">
+    <rect x="266" y="118" width="32" height="50" rx="6" fill="#C0392B"/>
+    <rect x="272" y="124" width="20" height="32" rx="2" fill="#FCE7DD"/>
+    <circle cx="282" cy="162" r="2.5" fill="#FCE7DD"/>
+  </g>
+
+  <!-- Left arm down at side -->
+  <path d="M150 212 Q132 260 138 320" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="138" cy="322" r="9" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+
+  <!-- Sound waves coming from phone -->
+  <path d="M310 100 Q330 120 320 150" fill="none" stroke="#C0392B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M328 88  Q360 120 348 168" fill="none" stroke="#C0392B" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- Decorative dot -->
+  <circle cx="62" cy="80" r="10" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+</svg>

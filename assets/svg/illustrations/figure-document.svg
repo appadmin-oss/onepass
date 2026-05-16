@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true">
+  <!-- Person reading a document (Field notes / Blog) -->
+  <line x1="20" y1="380" x2="380" y2="380" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Body -->
+  <path d="M150 220 L250 220 L266 380 L134 380 Z" fill="#0A0A0A"/>
+
+  <!-- Head with bun -->
+  <ellipse cx="200" cy="156" rx="38" ry="40" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+  <circle cx="168" cy="124" r="14" fill="#0A0A0A"/>
+  <path d="M162 158 Q162 124 200 122 Q238 124 238 158 L236 138 Q218 132 200 134 Q182 134 164 140 Z" fill="#0A0A0A"/>
+  <!-- Glasses -->
+  <circle cx="186" cy="166" r="10" fill="none" stroke="#0A0A0A" stroke-width="2.5"/>
+  <circle cx="216" cy="166" r="10" fill="none" stroke="#0A0A0A" stroke-width="2.5"/>
+  <line x1="196" y1="166" x2="206" y2="166" stroke="#0A0A0A" stroke-width="2"/>
+  <!-- Eyes inside glasses -->
+  <circle cx="186" cy="166" r="2.5" fill="#0A0A0A"/>
+  <circle cx="216" cy="166" r="2.5" fill="#0A0A0A"/>
+  <!-- Mouth — slight smirk -->
+  <path d="M192 188 Q200 192 208 188" fill="none" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Both arms holding the page -->
+  <path d="M158 234 Q170 270 196 270" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+  <path d="M242 234 Q230 270 204 270" fill="none" stroke="#0A0A0A" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Document/page -->
+  <g transform="translate(118 240)">
+    <rect x="0" y="0" width="164" height="120" fill="#FCE7DD" stroke="#0A0A0A" stroke-width="3"/>
+    <!-- Crimson eyebrow line -->
+    <line x1="14" y1="18" x2="60" y2="18" stroke="#C0392B" stroke-width="3" stroke-linecap="round"/>
+    <!-- Title bar -->
+    <rect x="14" y="28" width="120" height="8" fill="#0A0A0A"/>
+    <!-- Body lines -->
+    <line x1="14" y1="50" x2="148" y2="50" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+    <line x1="14" y1="62" x2="140" y2="62" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+    <line x1="14" y1="74" x2="120" y2="74" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+    <line x1="14" y1="86" x2="148" y2="86" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+    <line x1="14" y1="98" x2="100" y2="98" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+  </g>
+
+  <!-- Decorative shapes in the corners -->
+  <circle cx="60" cy="100" r="12" fill="#C0392B"/>
+  <rect x="324" y="80" width="40" height="40" fill="#0A0A0A"/>
+</svg>
